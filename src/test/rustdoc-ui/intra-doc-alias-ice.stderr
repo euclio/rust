@@ -1,8 +1,9 @@
-error: `[TypeAlias::hoge]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: TypeAlias::hoge: Inline
+error: cannot resolve `TypeAlias::hoge` as a path to an item or module
   --> $DIR/intra-doc-alias-ice.rs:5:30
    |
 LL | /// [broken cross-reference](TypeAlias::hoge)
-   |                              ^^^^^^^^^^^^^^^ cannot be resolved, ignoring
+   |                              ^^^^^^^^^^^^^^^ unresolved intra-doc link
    |
 note: lint level defined here
   --> $DIR/intra-doc-alias-ice.rs:1:9

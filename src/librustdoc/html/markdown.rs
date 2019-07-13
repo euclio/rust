@@ -37,7 +37,7 @@ use crate::html::toc::TocBuilder;
 use crate::html::highlight;
 use crate::test;
 
-use pulldown_cmark::{html, CowStr, Event, Options, Parser, Tag};
+use pulldown_cmark::{html, CowStr, Event, LinkType, Options, Parser, Tag};
 
 fn opts() -> Options {
     Options::ENABLE_TABLES | Options::ENABLE_FOOTNOTES
@@ -841,7 +841,7 @@ pub fn plain_summary_line_full(md: &str, limit_length: bool) -> String {
     }
 }
 
-pub fn markdown_links(md: &str) -> Vec<(String, Option<Range<usize>>)> {
+pub fn markdown_links(md: &str) -> Vec<(String, LinkType, Option<Range<usize>>)> {
     if md.is_empty() {
         return vec![];
     }
@@ -865,7 +865,7 @@ pub fn markdown_links(md: &str) -> Vec<(String, Option<Range<usize>>)> {
         };
 
         let push = |_: &str, s: &str| {
-            shortcut_links.borrow_mut().push((s.to_owned(), locate(s)));
+            shortcut_links.borrow_mut().push((s.to_owned(), LinkType::Shortcut, locate(s)));
             None
         };
         let p = Parser::new_with_broken_link_callback(md, opts(), Some(&push));
@@ -876,11 +876,13 @@ pub fn markdown_links(md: &str) -> Vec<(String, Option<Range<usize>>)> {
         let iter = Footnotes::new(HeadingLinks::new(p, None, &mut ids));
 
         for ev in iter {
-            if let Event::Start(Tag::Link(_, dest, _)) = ev {
+            if let Event::Start(Tag::Link(link_type, dest, _)) = ev {
                 debug!("found link: {}", dest);
                 links.push(match dest {
-                    CowStr::Borrowed(s) => (s.to_owned(), locate(s)),
-                    s @ CowStr::Boxed(..) | s @ CowStr::Inlined(..) => (s.into_string(), None),
+                    CowStr::Borrowed(s) => (s.to_owned(), link_type, locate(s)),
+                    s @ CowStr::Boxed(..) | s @ CowStr::Inlined(..) => {
+                        (s.into_string(), link_type, None)
+                    }
                 });
             }
         }

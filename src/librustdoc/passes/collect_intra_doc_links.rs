@@ -8,9 +8,11 @@ use syntax;
 use syntax::ast::{self, Ident};
 use syntax::feature_gate::UnstableFeatures;
 use syntax::symbol::Symbol;
-use syntax_pos::DUMMY_SP;
+use syntax_pos::{DUMMY_SP, BytePos};
 
 use std::ops::Range;
+
+use pulldown_cmark::LinkType;
 
 use crate::core::DocContext;
 use crate::fold::DocFolder;
@@ -273,7 +275,7 @@ impl<'a, 'tcx> DocFolder for LinkCollector<'a, 'tcx> {
 
         look_for_tests(&cx, &dox, &item, true);
 
-        for (ori_link, link_range) in markdown_links(&dox) {
+        for (ori_link, link_type, link_range) in markdown_links(&dox) {
             // Bail early for real links.
             if ori_link.contains('/') {
                 continue;
@@ -323,7 +325,7 @@ impl<'a, 'tcx> DocFolder for LinkCollector<'a, 'tcx> {
                         if let Ok(res) = self.resolve(path_str, ns, &current_item, parent_node) {
                             res
                         } else {
-                            resolution_failure(cx, &item, path_str, &dox, link_range);
+                            resolution_failure(cx, &item, path_str, &dox, link_range, link_type);
                             // This could just be a normal link or a broken link
                             // we could potentially check if something is
                             // "intra-doc-link-like" and warn in that case.
@@ -334,7 +336,7 @@ impl<'a, 'tcx> DocFolder for LinkCollector<'a, 'tcx> {
                         if let Ok(res) = self.resolve(path_str, ns, &current_item, parent_node) {
                             res
                         } else {
-                            resolution_failure(cx, &item, path_str, &dox, link_range);
+                            resolution_failure(cx, &item, path_str, &dox, link_range, link_type);
                             // This could just be a normal link.
                             continue;
                         }
@@ -359,7 +361,7 @@ impl<'a, 'tcx> DocFolder for LinkCollector<'a, 'tcx> {
                         };
 
                         if candidates.is_empty() {
-                            resolution_failure(cx, &item, path_str, &dox, link_range);
+                            resolution_failure(cx, &item, path_str, &dox, link_range, link_type);
                             // this could just be a normal link
                             continue;
                         }
@@ -383,7 +385,7 @@ impl<'a, 'tcx> DocFolder for LinkCollector<'a, 'tcx> {
                         if let Some(res) = macro_resolve(cx, path_str) {
                             (res, None)
                         } else {
-                            resolution_failure(cx, &item, path_str, &dox, link_range);
+                            resolution_failure(cx, &item, path_str, &dox, link_range, link_type);
                             continue
                         }
                     }
@@ -454,6 +456,7 @@ fn resolution_failure(
     path_str: &str,
     dox: &str,
     link_range: Option<Range<usize>>,
+    link_type: LinkType,
 ) {
     let hir_id = match cx.as_local_hir_id(item.def_id) {
         Some(hir_id) => hir_id,
@@ -464,17 +467,29 @@ fn resolution_failure(
     };
     let attrs = &item.attrs;
     let sp = span_of_attrs(attrs);
+    let msg = format!("cannot resolve `{}` as a path to an item or module", path_str);
 
     let mut diag = cx.tcx.struct_span_lint_hir(
         lint::builtin::INTRA_DOC_LINK_RESOLUTION_FAILURE,
         hir_id,
         sp,
-        &format!("`[{}]` cannot be resolved, ignoring it...", path_str),
+        &msg,
     );
     if let Some(link_range) = link_range {
         if let Some(sp) = super::source_span_for_markdown_range(cx, dox, &link_range, attrs) {
             diag.set_span(sp);
-            diag.span_label(sp, "cannot be resolved, ignoring");
+            diag.span_label(sp, "unresolved intra-doc link");
+
+            if let LinkType::Shortcut = link_type {
+                diag.multipart_suggestion(
+                    "escape the brackets if this is not a link",
+                    vec![
+                        (sp.shrink_to_lo().with_lo(sp.lo() - BytePos(1)), String::from(r"\[")),
+                        (sp.shrink_to_hi().with_hi(sp.hi() + BytePos(1)), String::from(r"\]")),
+                    ],
+                    Applicability::MaybeIncorrect,
+                );
+            }
         } else {
             // blah blah blah\nblah\nblah [blah] blah blah\nblah blah
             //                       ^     ~~~~
@@ -494,6 +509,9 @@ fn resolution_failure(
             ));
         }
     };
+
+    error!("{}: {:?}", path_str, link_type);
+
     diag.help("to escape `[` and `]` characters, just add '\\' before them like \
                `\\[` or `\\]`");
     diag.emit();

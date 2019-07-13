@@ -1,8 +1,9 @@
-error: `[v2]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:17Z: rustdoc::passes::collect_intra_doc_links: v2: Shortcut
+error: cannot resolve `v2` as a path to an item or module
   --> $DIR/deny-intra-link-resolution-failure.rs:3:6
    |
 LL | /// [v2]
-   |      ^^ cannot be resolved, ignoring
+   |      ^^ unresolved intra-doc link
    |
 note: lint level defined here
   --> $DIR/deny-intra-link-resolution-failure.rs:1:9
@@ -10,6 +11,10 @@ note: lint level defined here
 LL | #![deny(intra_doc_link_resolution_failure)]
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL | /// \[v2\]
+   |     ^^  ^^
 
 error: aborting due to previous error
 

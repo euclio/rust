@@ -75,3 +75,13 @@ pub struct E;
 /// docs [error2]
 ///
 pub struct F;
+
+/// [inline](error)
+/// [reference][ref]
+/// [collapsed][]
+/// [shortcut]
+///
+/// [ref]: error
+/// [collapsed]: error
+/// [shortcut]: error
+pub struct G;

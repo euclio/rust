@@ -1,8 +1,9 @@
-error: `[i]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: i: Shortcut
+error: cannot resolve `i` as a path to an item or module
   --> $DIR/intra-link-span-ice-55723.rs:9:10
    |
 LL | /// （arr[i]）
-   |           ^ cannot be resolved, ignoring
+   |           ^ unresolved intra-doc link
    |
 note: lint level defined here
   --> $DIR/intra-link-span-ice-55723.rs:1:9
@@ -10,6 +11,10 @@ note: lint level defined here
 LL | #![deny(intra_doc_link_resolution_failure)]
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL | /// （arr\[i\]）
+   |          ^^ ^^
 
 error: aborting due to previous error
 

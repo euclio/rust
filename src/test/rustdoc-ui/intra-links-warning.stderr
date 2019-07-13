@@ -1,77 +1,123 @@
-warning: `[Foo::baz]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: Foo::baz: Shortcut
+warning: cannot resolve `Foo::baz` as a path to an item or module
   --> $DIR/intra-links-warning.rs:3:23
    |
 LL |        //! Test with [Foo::baz], [Bar::foo], ...
-   |                       ^^^^^^^^ cannot be resolved, ignoring
+   |                       ^^^^^^^^ unresolved intra-doc link
    |
    = note: #[warn(intra_doc_link_resolution_failure)] on by default
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL |        //! Test with \[Foo::baz\], [Bar::foo], ...
+   |                      ^^        ^^
 
-warning: `[Bar::foo]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: Bar::foo: Shortcut
+warning: cannot resolve `Bar::foo` as a path to an item or module
   --> $DIR/intra-links-warning.rs:3:35
    |
 LL |        //! Test with [Foo::baz], [Bar::foo], ...
-   |                                   ^^^^^^^^ cannot be resolved, ignoring
+   |                                   ^^^^^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL |        //! Test with [Foo::baz], \[Bar::foo\], ...
+   |                                  ^^        ^^
 
-warning: `[Uniooon::X]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: Uniooon::X: Shortcut
+warning: cannot resolve `Uniooon::X` as a path to an item or module
   --> $DIR/intra-links-warning.rs:4:13
    |
 LL |      //! , [Uniooon::X] and [Qux::Z].
-   |             ^^^^^^^^^^ cannot be resolved, ignoring
+   |             ^^^^^^^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL |      //! , \[Uniooon::X\] and [Qux::Z].
+   |            ^^          ^^
 
-warning: `[Qux::Z]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: Qux::Z: Shortcut
+warning: cannot resolve `Qux::Z` as a path to an item or module
   --> $DIR/intra-links-warning.rs:4:30
    |
 LL |      //! , [Uniooon::X] and [Qux::Z].
-   |                              ^^^^^^ cannot be resolved, ignoring
+   |                              ^^^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL |      //! , [Uniooon::X] and \[Qux::Z\].
+   |                             ^^      ^^
 
-warning: `[Uniooon::X]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: Uniooon::X: Shortcut
+warning: cannot resolve `Uniooon::X` as a path to an item or module
   --> $DIR/intra-links-warning.rs:6:14
    |
 LL |       //! , [Uniooon::X] and [Qux::Z].
-   |              ^^^^^^^^^^ cannot be resolved, ignoring
+   |              ^^^^^^^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL |       //! , \[Uniooon::X\] and [Qux::Z].
+   |             ^^          ^^
 
-warning: `[Qux::Z]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: Qux::Z: Shortcut
+warning: cannot resolve `Qux::Z` as a path to an item or module
   --> $DIR/intra-links-warning.rs:6:31
    |
 LL |       //! , [Uniooon::X] and [Qux::Z].
-   |                               ^^^^^^ cannot be resolved, ignoring
+   |                               ^^^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL |       //! , [Uniooon::X] and \[Qux::Z\].
+   |                              ^^      ^^
 
-warning: `[Qux:Y]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: Qux:Y: Shortcut
+warning: cannot resolve `Qux:Y` as a path to an item or module
   --> $DIR/intra-links-warning.rs:8:13
    |
 LL |        /// [Qux:Y]
-   |             ^^^^^ cannot be resolved, ignoring
+   |             ^^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL |        /// \[Qux:Y\]
+   |            ^^     ^^
 
-warning: `[error]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: error: Shortcut
+warning: cannot resolve `error` as a path to an item or module
   --> $DIR/intra-links-warning.rs:51:30
    |
 LL |  * time to introduce a link [error]*/
-   |                              ^^^^^ cannot be resolved, ignoring
+   |                              ^^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL |  * time to introduce a link \[error\]*/
+   |                             ^^     ^^
 
-warning: `[error]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: error: Shortcut
+warning: cannot resolve `error` as a path to an item or module
   --> $DIR/intra-links-warning.rs:57:30
    |
 LL |  * time to introduce a link [error]
-   |                              ^^^^^ cannot be resolved, ignoring
+   |                              ^^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL |  * time to introduce a link \[error\]
+   |                             ^^     ^^
 
-warning: `[error]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: error: Shortcut
+warning: cannot resolve `error` as a path to an item or module
   --> $DIR/intra-links-warning.rs:61:1
    |
 LL | #[doc = "single line [error]"]
@@ -83,7 +129,8 @@ LL | #[doc = "single line [error]"]
                         ^^^^^
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
 
-warning: `[error]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: error: Shortcut
+warning: cannot resolve `error` as a path to an item or module
   --> $DIR/intra-links-warning.rs:64:1
    |
 LL | #[doc = "single line with \"escaping\" [error]"]
@@ -95,7 +142,8 @@ LL | #[doc = "single line with \"escaping\" [error]"]
                                         ^^^^^
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
 
-warning: `[error]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: error: Shortcut
+warning: cannot resolve `error` as a path to an item or module
   --> $DIR/intra-links-warning.rs:67:1
    |
 LL | / /// Item docs.
@@ -109,47 +157,113 @@ LL | | /// [error]
             ^^^^^
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
 
-warning: `[error1]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: error1: Shortcut
+warning: cannot resolve `error1` as a path to an item or module
   --> $DIR/intra-links-warning.rs:73:11
    |
 LL | /// docs [error1]
-   |           ^^^^^^ cannot be resolved, ignoring
+   |           ^^^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL | /// docs \[error1\]
+   |          ^^      ^^
 
-warning: `[error2]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: error2: Shortcut
+warning: cannot resolve `error2` as a path to an item or module
   --> $DIR/intra-links-warning.rs:75:11
    |
 LL | /// docs [error2]
-   |           ^^^^^^ cannot be resolved, ignoring
+   |           ^^^^^^ unresolved intra-doc link
+   |
+   = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL | /// docs \[error2\]
+   |          ^^      ^^
+
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: error: Inline
+warning: cannot resolve `error` as a path to an item or module
+  --> $DIR/intra-links-warning.rs:79:14
+   |
+LL | /// [inline](error)
+   |              ^^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
 
-warning: `[BarA]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: error: Reference
+warning: cannot resolve `error` as a path to an item or module
+  --> $DIR/intra-links-warning.rs:84:12
+   |
+LL | /// [ref]: error
+   |            ^^^^^ unresolved intra-doc link
+   |
+   = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: error: Collapsed
+warning: cannot resolve `error` as a path to an item or module
+  --> $DIR/intra-links-warning.rs:85:18
+   |
+LL | /// [collapsed]: error
+   |                  ^^^^^ unresolved intra-doc link
+   |
+   = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: error: Shortcut
+warning: cannot resolve `error` as a path to an item or module
+  --> $DIR/intra-links-warning.rs:86:17
+   |
+LL | /// [shortcut]: error
+   |                 ^^^^^ unresolved intra-doc link
+   |
+   = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL | /// [shortcut]:\[error\]pub struct G;
+   |                ^^     ^^
+
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: BarA: Shortcut
+warning: cannot resolve `BarA` as a path to an item or module
   --> $DIR/intra-links-warning.rs:14:10
    |
 LL | /// bar [BarA] bar
-   |          ^^^^ cannot be resolved, ignoring
+   |          ^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL | /// bar \[BarA\] bar
+   |         ^^    ^^
 
-warning: `[BarB]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: BarB: Shortcut
+warning: cannot resolve `BarB` as a path to an item or module
   --> $DIR/intra-links-warning.rs:20:9
    |
 LL |  * bar [BarB] bar
-   |         ^^^^ cannot be resolved, ignoring
+   |         ^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL |  * bar \[BarB\] bar
+   |        ^^    ^^
 
-warning: `[BarC]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: BarC: Shortcut
+warning: cannot resolve `BarC` as a path to an item or module
   --> $DIR/intra-links-warning.rs:27:6
    |
 LL | bar [BarC] bar
-   |      ^^^^ cannot be resolved, ignoring
+   |      ^^^^ unresolved intra-doc link
    |
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL | bar \[BarC\] bar
+   |     ^^    ^^
 
-warning: `[BarD]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: BarD: Shortcut
+warning: cannot resolve `BarD` as a path to an item or module
   --> $DIR/intra-links-warning.rs:38:1
    |
 LL | #[doc = "Foo\nbar [BarD] bar\nbaz"]
@@ -161,7 +275,8 @@ LL | #[doc = "Foo\nbar [BarD] bar\nbaz"]
                 ^^^^
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
 
-warning: `[BarF]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:18Z: rustdoc::passes::collect_intra_doc_links: BarF: Shortcut
+warning: cannot resolve `BarF` as a path to an item or module
   --> $DIR/intra-links-warning.rs:43:9
    |
 LL |         #[doc = $f]

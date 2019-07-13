@@ -15,11 +15,12 @@ LL | #![deny(rustdoc)]
    |         ^^^^^^^
    = note: #[deny(private_doc_tests)] implied by #[deny(rustdoc)]
 
-error: `[error]` cannot be resolved, ignoring it...
+ERROR 2019-07-13T14:46:19Z: rustdoc::passes::collect_intra_doc_links: error: Shortcut
+error: cannot resolve `error` as a path to an item or module
   --> $DIR/lint-group.rs:9:29
    |
 LL | /// what up, let's make an [error]
-   |                             ^^^^^ cannot be resolved, ignoring
+   |                             ^^^^^ unresolved intra-doc link
    |
 note: lint level defined here
   --> $DIR/lint-group.rs:7:9
@@ -28,6 +29,10 @@ LL | #![deny(rustdoc)]
    |         ^^^^^^^
    = note: #[deny(intra_doc_link_resolution_failure)] implied by #[deny(rustdoc)]
    = help: to escape `[` and `]` characters, just add '\' before them like `\[` or `\]`
+help: escape the brackets if this is not a link
+   |
+LL | /// what up, let's make an \[error\]
+   |                            ^^     ^^
 
 error: Missing code example in this documentation
   --> $DIR/lint-group.rs:16:1
