@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::prelude::Write;
 use std::io;
 
-use term;
+use termcolor::{ColorChoice, StandardStream};
 
 use super::{
     bench::fmt_bench_samples,
@@ -13,37 +13,16 @@ use super::{
     formatters::{JsonFormatter, OutputFormatter, PrettyFormatter, TerseFormatter},
     helpers::{
         concurrency::get_concurrency,
+        isatty::stdout_isatty,
         metrics::MetricMap,
     },
     types::{TestDesc, TestDescAndFn, NamePadding},
-    options::{Options, OutputFormat},
+    options::{ColorConfig, Options, OutputFormat},
     test_result::TestResult,
     time::TestExecTime,
     run_tests,
     filter_tests,
 };
-
-/// Generic wrapper over stdout.
-pub enum OutputLocation<T> {
-    Pretty(Box<term::StdoutTerminal>),
-    Raw(T),
-}
-
-impl<T: Write> Write for OutputLocation<T> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match *self {
-            OutputLocation::Pretty(ref mut term) => term.write(buf),
-            OutputLocation::Raw(ref mut stdout) => stdout.write(buf),
-        }
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        match *self {
-            OutputLocation::Pretty(ref mut term) => term.flush(),
-            OutputLocation::Raw(ref mut stdout) => stdout.flush(),
-        }
-    }
-}
 
 pub struct ConsoleTestState {
     pub log_out: Option<File>,
@@ -133,10 +112,7 @@ impl ConsoleTestState {
 
 // List the tests to console, and optionally to logfile. Filters are honored.
 pub fn list_tests_console(opts: &TestOpts, tests: Vec<TestDescAndFn>) -> io::Result<()> {
-    let mut output = match term::stdout() {
-        None => OutputLocation::Raw(io::stdout()),
-        Some(t) => OutputLocation::Pretty(t),
-    };
+    let mut output = StandardStream::stdout(ColorChoice::Auto);
 
     let quiet = opts.format == OutputFormat::Terse;
     let mut st = ConsoleTestState::new(opts)?;
@@ -261,10 +237,19 @@ fn on_test_event(
 /// A simple console test runner.
 /// Runs provided tests reporting process and results to the stdout.
 pub fn run_tests_console(opts: &TestOpts, tests: Vec<TestDescAndFn>) -> io::Result<bool> {
-    let output = match term::stdout() {
-        None => OutputLocation::Raw(io::stdout()),
-        Some(t) => OutputLocation::Pretty(t),
+    let color_choice = match opts.color {
+        ColorConfig::AutoColor => {
+            if !opts.nocapture && stdout_isatty() {
+                ColorChoice::Auto
+            } else {
+                ColorChoice::Never
+            }
+        },
+        ColorConfig::AlwaysColor => ColorChoice::Always,
+        ColorConfig::NeverColor => ColorChoice::Never,
     };
+
+    let output = StandardStream::stdout(color_choice);
 
     let max_name_len = tests
         .iter()
@@ -277,14 +262,12 @@ pub fn run_tests_console(opts: &TestOpts, tests: Vec<TestDescAndFn>) -> io::Resu
     let mut out: Box<dyn OutputFormatter> = match opts.format {
         OutputFormat::Pretty => Box::new(PrettyFormatter::new(
             output,
-            opts.use_color(),
             max_name_len,
             is_multithreaded,
             opts.time_options,
         )),
         OutputFormat::Terse => Box::new(TerseFormatter::new(
             output,
-            opts.use_color(),
             max_name_len,
             is_multithreaded,
         )),

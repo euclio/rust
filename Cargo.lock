@@ -324,7 +324,7 @@ dependencies = [
  "strip-ansi-escapes",
  "tar",
  "tempfile",
- "termcolor",
+ "termcolor 1.0.4",
  "toml",
  "unicode-width",
  "url 2.1.0",
@@ -969,7 +969,7 @@ dependencies = [
  "humantime",
  "log",
  "regex",
- "termcolor",
+ "termcolor 1.0.4",
 ]
 
 [[package]]
@@ -982,7 +982,7 @@ dependencies = [
  "humantime",
  "log",
  "regex",
- "termcolor",
+ "termcolor 1.0.4",
 ]
 
 [[package]]
@@ -1179,7 +1179,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34dd4c507af68d37ffef962063dfa1944ce0dd4d5b82043dbab1dabe088610c3"
 dependencies = [
  "memchr",
- "termcolor",
+ "termcolor 1.0.4",
 ]
 
 [[package]]
@@ -3192,7 +3192,7 @@ dependencies = [
  "rustc-ap-serialize",
  "rustc-ap-syntax_pos",
  "term_size",
- "termcolor",
+ "termcolor 1.0.4",
  "unicode-width",
 ]
 
@@ -3523,7 +3523,7 @@ dependencies = [
  "serialize",
  "syntax_pos",
  "term_size",
- "termcolor",
+ "termcolor 1.0.4",
  "unicode-width",
 ]
 
@@ -3908,7 +3908,7 @@ dependencies = [
  "serde",
  "serde_json",
  "structopt 0.3.1",
- "term 0.6.0",
+ "term",
  "toml",
  "unicode-segmentation",
  "unicode-width",
@@ -4455,14 +4455,6 @@ dependencies = [
 
 [[package]]
 name = "term"
-version = "0.0.0"
-dependencies = [
- "core",
- "std",
-]
-
-[[package]]
-name = "term"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0dd90505d5006a4422d3520b30c781d480b3f36768c2fa2187c3e950bc110464"
@@ -4489,7 +4481,16 @@ version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4096add70612622289f2fdcdbd5086dc81c1e2675e6ae58d6c4f62a16c6d7f2f"
 dependencies = [
- "wincolor",
+ "wincolor 1.0.1",
+]
+
+[[package]]
+name = "termcolor"
+version = "1.0.5"
+dependencies = [
+ "rustc-std-workspace-core",
+ "rustc-std-workspace-std",
+ "wincolor 1.0.2",
 ]
 
 [[package]]
@@ -4514,7 +4515,7 @@ dependencies = [
  "panic_unwind",
  "proc_macro",
  "std",
- "term 0.0.0",
+ "termcolor 1.0.5",
 ]
 
 [[package]]
@@ -5071,8 +5072,19 @@ version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92c1eb33641e276cfa214a0522acad57be5c56b10cb348b3c5117db75f3ac4b0"
 dependencies = [
- "winapi-i686-pc-windows-gnu",
- "winapi-x86_64-pc-windows-gnu",
+ "winapi-i686-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi-x86_64-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "winapi"
+version = "0.3.8"
+source = "git+https://github.com/euclio/winapi-rs?branch=std-workspace#e187a4b2bd574b37d830d66d596abad299715c7e"
+dependencies = [
+ "compiler_builtins",
+ "rustc-std-workspace-core",
+ "winapi-i686-pc-windows-gnu 0.4.0 (git+https://github.com/euclio/winapi-rs?branch=std-workspace)",
+ "winapi-x86_64-pc-windows-gnu 0.4.0 (git+https://github.com/euclio/winapi-rs?branch=std-workspace)",
 ]
 
 [[package]]
@@ -5080,6 +5092,15 @@ name = "winapi-build"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d315eee3b34aca4797b2da6b13ed88266e6d612562a0c46390af8299fc699bc"
+
+[[package]]
+name = "winapi-i686-pc-windows-gnu"
+version = "0.4.0"
+source = "git+https://github.com/euclio/winapi-rs?branch=std-workspace#e187a4b2bd574b37d830d66d596abad299715c7e"
+dependencies = [
+ "compiler_builtins",
+ "rustc-std-workspace-core",
+]
 
 [[package]]
 name = "winapi-i686-pc-windows-gnu"
@@ -5099,6 +5120,15 @@ dependencies = [
 [[package]]
 name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
+source = "git+https://github.com/euclio/winapi-rs?branch=std-workspace#e187a4b2bd574b37d830d66d596abad299715c7e"
+dependencies = [
+ "compiler_builtins",
+ "rustc-std-workspace-core",
+]
+
+[[package]]
+name = "winapi-x86_64-pc-windows-gnu"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
@@ -5110,6 +5140,15 @@ checksum = "561ed901ae465d6185fa7864d63fbd5720d0ef718366c9a4dc83cf6170d7e9ba"
 dependencies = [
  "winapi 0.3.6",
  "winapi-util",
+]
+
+[[package]]
+name = "wincolor"
+version = "1.0.2"
+dependencies = [
+ "rustc-std-workspace-core",
+ "rustc-std-workspace-std",
+ "winapi 0.3.8",
 ]
 
 [[package]]

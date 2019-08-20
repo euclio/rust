@@ -11,7 +11,7 @@ crate-type = ["dylib", "rlib"]
 
 [dependencies]
 getopts = { version = "0.2.21", features = ['rustc-dep-of-std'] }
-term = { path = "../libterm" }
+termcolor = { path = "../../../termcolor", features = ['rustc-dep-of-std' ]}
 std = { path = "../libstd" }
 core = { path = "../libcore" }
 libc = { version = "0.2", default-features = false }

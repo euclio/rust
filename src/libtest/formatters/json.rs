@@ -8,16 +8,16 @@ use crate::{
     types::TestDesc,
     time,
     test_result::TestResult,
-    console::{ConsoleTestState, OutputLocation},
+    console::ConsoleTestState,
 };
 use super::OutputFormatter;
 
 pub(crate) struct JsonFormatter<T> {
-    out: OutputLocation<T>,
+    out: T,
 }
 
 impl<T: Write> JsonFormatter<T> {
-    pub fn new(out: OutputLocation<T>) -> Self {
+    pub fn new(out: T) -> Self {
         Self { out }
     }
 
