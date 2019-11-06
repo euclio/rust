@@ -3,34 +3,32 @@
 //! All the static files are included here for centralized access in case anything other than the
 //! HTML rendering code (say, the theme checker) needs to access one of these files.
 //!
-//! Note about types: CSS and JavaScript files are included as `&'static str` to allow for the
-//! minifier to run on them. All other files are included as `&'static [u8]` so they can be
-//! directly written to a `Write` handle.
+//! All files are included as `&'static [u8]` so they can be directly written to a `Write` handle.
 
 /// The file contents of the main `rustdoc.css` file, responsible for the core layout of the page.
-pub static RUSTDOC_CSS: &'static str = include_str!("static/rustdoc.css");
+pub static RUSTDOC_CSS: &'static [u8] = include_bytes!("static/rustdoc.css");
 
 /// The file contents of `settings.css`, responsible for the items on the settings page.
-pub static SETTINGS_CSS: &'static str = include_str!("static/settings.css");
+pub static SETTINGS_CSS: &'static [u8] = include_bytes!("static/settings.css");
 
 /// The file contents of the `noscript.css` file, used in case JS isn't supported or is disabled.
-pub static NOSCRIPT_CSS: &'static str = include_str!("static/noscript.css");
+pub static NOSCRIPT_CSS: &'static [u8] = include_bytes!("static/noscript.css");
 
 /// The file contents of `normalize.css`, included to even out standard elements between browser
 /// implementations.
-pub static NORMALIZE_CSS: &'static str = include_str!("static/normalize.css");
+pub static NORMALIZE_CSS: &'static [u8] = include_bytes!("static/normalize.css");
 
 /// The file contents of `main.js`, which contains the core JavaScript used on documentation pages,
 /// including search behavior and docblock folding, among others.
-pub static MAIN_JS: &'static str = include_str!("static/main.js");
+pub static MAIN_JS: &'static [u8] = include_bytes!("static/main.js");
 
 /// The file contents of `settings.js`, which contains the JavaScript used to handle the settings
 /// page.
-pub static SETTINGS_JS: &'static str = include_str!("static/settings.js");
+pub static SETTINGS_JS: &'static [u8] = include_bytes!("static/settings.js");
 
 /// The file contents of `storage.js`, which contains functionality related to browser Local
 /// Storage, used to store documentation settings.
-pub static STORAGE_JS: &'static str = include_str!("static/storage.js");
+pub static STORAGE_JS: &'static [u8] = include_bytes!("static/storage.js");
 
 /// The file contents of `brush.svg`, the icon used for the theme-switch button.
 pub static BRUSH_SVG: &'static [u8] = include_bytes!("static/brush.svg");
@@ -60,10 +58,10 @@ pub static RUST_FAVICON: &'static [u8] = include_bytes!("static/favicon.ico");
 pub mod themes {
     /// The "light" theme, selected by default when no setting is available. Used as the basis for
     /// the `--theme-checker` functionality.
-    pub static LIGHT: &'static str = include_str!("static/themes/light.css");
+    pub static LIGHT: &'static [u8] = include_bytes!("static/themes/light.css");
 
     /// The "dark" theme.
-    pub static DARK: &'static str = include_str!("static/themes/dark.css");
+    pub static DARK: &'static [u8] = include_bytes!("static/themes/dark.css");
 }
 
 /// Files related to the Fira Sans font.
@@ -109,5 +107,5 @@ pub mod source_code_pro {
 /// Files related to the sidebar in rustdoc sources.
 pub mod sidebar {
     /// File script to handle sidebar.
-    pub static SOURCE_SCRIPT: &'static str = include_str!("static/source-script.js");
+    pub static SOURCE_SCRIPT: &'static [u8] = include_bytes!("static/source-script.js");
 }

@@ -1890,12 +1890,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4"
 
 [[package]]
-name = "macro-utils"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2c4deaccc2ead6a28c16c0ba82f07d52b6475397415ce40876e559b0b0ea510"
-
-[[package]]
 name = "maplit"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2037,15 +2031,6 @@ dependencies = [
  "phf",
  "phf_codegen",
  "unicase 1.4.2",
-]
-
-[[package]]
-name = "minifier"
-version = "0.0.33"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70bf0db2475f5e627787da77ca52fe33c294063f49f4134b8bc662eedb5e7332"
-dependencies = [
- "macro-utils",
 ]
 
 [[package]]
@@ -3844,7 +3829,6 @@ dependencies = [
 name = "rustdoc"
 version = "0.0.0"
 dependencies = [
- "minifier",
  "pulldown-cmark 0.5.3",
  "rustc-rayon 0.3.0",
  "tempfile",

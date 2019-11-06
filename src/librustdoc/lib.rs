@@ -289,11 +289,6 @@ fn opts() -> Vec<RustcOptGroup> {
                      "Configure the structure of JSON diagnostics",
                      "CONFIG")
         }),
-        unstable("disable-minification", |o| {
-             o.optflag("",
-                       "disable-minification",
-                       "Disable minification applied on JS files")
-        }),
         stable("warn", |o| {
             o.optmulti("W", "warn", "Set lint warnings", "OPT")
         }),

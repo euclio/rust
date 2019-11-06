@@ -190,12 +190,6 @@ pub struct RenderOptions {
     pub extern_html_root_urls: BTreeMap<String, String>,
     /// If present, suffix added to CSS/JavaScript files when referencing them in generated pages.
     pub resource_suffix: String,
-    /// Whether to run the static CSS/JavaScript through a minifier when outputting them. `true` by
-    /// default.
-    //
-    // FIXME(misdreavus): the flag name is `--disable-minification` but the meaning is inverted
-    // once read.
-    pub enable_minification: bool,
     /// Whether to create an index page in the root of the output directory. If this is true but
     /// `enable_index_page` is None, generate a static listing of crates instead.
     pub enable_index_page: bool,
@@ -283,7 +277,7 @@ impl Options {
 
         let to_check = matches.opt_strs("theme-checker");
         if !to_check.is_empty() {
-            let paths = theme::load_css_paths(static_files::themes::LIGHT.as_bytes());
+            let paths = theme::load_css_paths(static_files::themes::LIGHT);
             let mut errors = 0;
 
             println!("rustdoc: [theme-checker] Starting tests!");
@@ -358,7 +352,7 @@ impl Options {
 
         let mut themes = Vec::new();
         if matches.opt_present("themes") {
-            let paths = theme::load_css_paths(static_files::themes::LIGHT.as_bytes());
+            let paths = theme::load_css_paths(static_files::themes::LIGHT);
 
             for (theme_file, theme_s) in matches.opt_strs("themes")
                                                 .iter()
@@ -468,7 +462,6 @@ impl Options {
         let display_warnings = matches.opt_present("display-warnings");
         let sort_modules_alphabetically = !matches.opt_present("sort-modules-by-appearance");
         let resource_suffix = matches.opt_str("resource-suffix").unwrap_or_default();
-        let enable_minification = !matches.opt_present("disable-minification");
         let markdown_no_toc = matches.opt_present("markdown-no-toc");
         let markdown_css = matches.opt_strs("markdown-css");
         let markdown_playground_url = matches.opt_str("markdown-playground-url");
@@ -531,7 +524,6 @@ impl Options {
                 extension_css,
                 extern_html_root_urls,
                 resource_suffix,
-                enable_minification,
                 enable_index_page,
                 index_page,
                 static_root_path,

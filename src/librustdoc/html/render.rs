@@ -32,7 +32,6 @@ use std::collections::{BTreeMap, VecDeque};
 use std::default::Default;
 use std::error;
 use std::fmt::{self, Formatter, Write as FmtWrite};
-use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::io::{self, BufReader};
@@ -70,8 +69,6 @@ use crate::html::item_type::ItemType;
 use crate::html::markdown::{self, Markdown, MarkdownHtml, MarkdownSummaryLine, ErrorCodes, IdMap};
 use crate::html::{highlight, layout, static_files};
 use crate::html::sources;
-
-use minifier;
 
 #[cfg(test)]
 mod tests;
@@ -550,16 +547,11 @@ fn write_shared(
 
     // Add all the static files. These may already exist, but we just
     // overwrite them anyway to make sure that they're fresh and up-to-date.
+    let write = |p, c| { cx.shared.fs.write(p, c) };
 
-    write_minify(&cx.shared.fs, cx.path("rustdoc.css"),
-                 static_files::RUSTDOC_CSS,
-                 options.enable_minification)?;
-    write_minify(&cx.shared.fs, cx.path("settings.css"),
-                 static_files::SETTINGS_CSS,
-                 options.enable_minification)?;
-    write_minify(&cx.shared.fs, cx.path("noscript.css"),
-                 static_files::NOSCRIPT_CSS,
-                 options.enable_minification)?;
+    write(cx.path("rustdoc.css"), static_files::RUSTDOC_CSS)?;
+    write(cx.path("settings.css"), static_files::SETTINGS_CSS)?;
+    write(cx.path("noscript.css"), static_files::NOSCRIPT_CSS)?;
 
     // To avoid "light.css" to be overwritten, we'll first run over the received themes and only
     // then we'll run over the "official" styles.
@@ -573,7 +565,6 @@ fn write_shared(
         themes.insert(theme.to_owned());
     }
 
-    let write = |p, c| { cx.shared.fs.write(p, c) };
     if (*cx.shared).layout.logo.is_empty() {
         write(cx.path("rust-logo.png"), static_files::RUST_LOGO)?;
     }
@@ -583,11 +574,9 @@ fn write_shared(
     write(cx.path("brush.svg"), static_files::BRUSH_SVG)?;
     write(cx.path("wheel.svg"), static_files::WHEEL_SVG)?;
     write(cx.path("down-arrow.svg"), static_files::DOWN_ARROW_SVG)?;
-    write_minify(&cx.shared.fs,
-        cx.path("light.css"), static_files::themes::LIGHT, options.enable_minification)?;
+    write(cx.path("light.css"), static_files::themes::LIGHT)?;
     themes.insert("light".to_owned());
-    write_minify(&cx.shared.fs,
-        cx.path("dark.css"), static_files::themes::DARK, options.enable_minification)?;
+    write(cx.path("dark.css"), static_files::themes::DARK)?;
     themes.insert("dark".to_owned());
 
     let mut themes: Vec<&String> = themes.iter().collect();
@@ -646,46 +635,29 @@ themePicker.onblur = handleThemeButtonsBlur;
                        .map(|s| format!("\"{}\"", s))
                        .collect::<Vec<String>>()
                        .join(","));
-    write(cx.dst.join(&format!("theme{}.js", cx.shared.resource_suffix)),
-          theme_js.as_bytes()
+    write(cx.dst.join(&format!("theme{}.js", cx.shared.resource_suffix)), theme_js.as_bytes())?;
+
+    write(cx.path("main.js"), static_files::MAIN_JS)?;
+    write(cx.path("settings.js"), static_files::SETTINGS_JS)?;
+
+    if cx.shared.include_sources {
+        write(cx.path("source-script.js"), static_files::sidebar::SOURCE_SCRIPT)?;
+    }
+
+    cx.shared.fs.write(
+        cx.path("storage.js"),
+        format!(
+            r#"var resourcesSuffix = "{}";{}"#,
+            cx.shared.resource_suffix,
+            str::from_utf8(static_files::STORAGE_JS).unwrap(),
+        ).as_bytes(),
     )?;
 
-    write_minify(&cx.shared.fs, cx.path("main.js"),
-                 static_files::MAIN_JS,
-                 options.enable_minification)?;
-    write_minify(&cx.shared.fs, cx.path("settings.js"),
-                 static_files::SETTINGS_JS,
-                 options.enable_minification)?;
-    if cx.shared.include_sources {
-        write_minify(
-            &cx.shared.fs,
-            cx.path("source-script.js"),
-            static_files::sidebar::SOURCE_SCRIPT,
-            options.enable_minification)?;
-    }
-
-    {
-        write_minify(
-            &cx.shared.fs,
-            cx.path("storage.js"),
-            &format!("var resourcesSuffix = \"{}\";{}",
-                     cx.shared.resource_suffix,
-                     static_files::STORAGE_JS),
-            options.enable_minification)?;
-    }
-
     if let Some(ref css) = cx.shared.layout.css_file_extension {
-        let out = cx.path("theme.css");
-        let buffer = try_err!(fs::read_to_string(css), css);
-        if !options.enable_minification {
-            cx.shared.fs.write(&out, &buffer)?;
-        } else {
-            write_minify(&cx.shared.fs, out, &buffer, options.enable_minification)?;
-        }
+        let buffer = try_err!(fs::read(css), css);
+        cx.shared.fs.write(cx.path("theme.css"), &buffer)?;
     }
-    write_minify(&cx.shared.fs, cx.path("normalize.css"),
-                 static_files::NORMALIZE_CSS,
-                 options.enable_minification)?;
+    write(cx.path("normalize.css"), static_files::NORMALIZE_CSS)?;
     write(cx.dst.join("FiraSans-Regular.woff"),
           static_files::fira_sans::REGULAR)?;
     write(cx.dst.join("FiraSans-Medium.woff"),
@@ -878,14 +850,12 @@ themePicker.onblur = handleThemeButtonsBlur;
     // Sort the indexes by crate so the file will be generated identically even
     // with rustdoc running in parallel.
     all_indexes.sort();
-    {
-        let mut v = String::from("var N=null,E=\"\",T=\"t\",U=\"u\",searchIndex={};\n");
-        v.push_str(&minify_replacer(
-            &format!("{}\n{}", variables.join(""), all_indexes.join("\n")),
-            options.enable_minification));
-        v.push_str("initSearch(searchIndex);addSearchOptions(searchIndex);");
-        cx.shared.fs.write(&dst, &v)?;
-    }
+
+    let mut index_js = String::from("searchIndex={};\n");
+    index_js.push_str(&format!("{}\n{}", variables.join(""), all_indexes.join("\n")));
+    index_js.push_str("initSearch(searchIndex);addSearchOptions(searchIndex);");
+    cx.shared.fs.write(&dst, &index_js)?;
+
     if options.enable_index_page {
         if let Some(index_page) = options.index_page.clone() {
             let mut md_opts = options.clone();
@@ -1004,82 +974,6 @@ themePicker.onblur = handleThemeButtonsBlur;
         cx.shared.fs.write(&mydst, &v)?;
     }
     Ok(())
-}
-
-fn write_minify(fs:&DocFS, dst: PathBuf, contents: &str, enable_minification: bool
-                ) -> Result<(), Error> {
-    if enable_minification {
-        if dst.extension() == Some(&OsStr::new("css")) {
-            let res = try_none!(minifier::css::minify(contents).ok(), &dst);
-            fs.write(dst, res.as_bytes())
-        } else {
-            fs.write(dst, minifier::js::minify(contents).as_bytes())
-        }
-    } else {
-        fs.write(dst, contents.as_bytes())
-    }
-}
-
-fn minify_replacer(
-    contents: &str,
-    enable_minification: bool,
-) -> String {
-    use minifier::js::{simple_minify, Keyword, ReservedChar, Token, Tokens};
-
-    if enable_minification {
-        let tokens: Tokens<'_> = simple_minify(contents)
-            .into_iter()
-            .filter(|(f, next)| {
-                // We keep backlines.
-                minifier::js::clean_token_except(f, next, &|c: &Token<'_>| {
-                    c.get_char() != Some(ReservedChar::Backline)
-                })
-            })
-            .map(|(f, _)| {
-                minifier::js::replace_token_with(f, &|t: &Token<'_>| {
-                    match *t {
-                        Token::Keyword(Keyword::Null) => Some(Token::Other("N")),
-                        Token::String(s) => {
-                            let s = &s[1..s.len() -1]; // The quotes are included
-                            if s.is_empty() {
-                                Some(Token::Other("E"))
-                            } else if s == "t" {
-                                Some(Token::Other("T"))
-                            } else if s == "u" {
-                                Some(Token::Other("U"))
-                            } else {
-                                None
-                            }
-                        }
-                        _ => None,
-                    }
-                })
-            })
-            .collect::<Vec<_>>()
-            .into();
-        let o = tokens.apply(|f| {
-            // We add a backline after the newly created variables.
-            minifier::js::aggregate_strings_into_array_with_separation_filter(
-                f,
-                "R",
-                Token::Char(ReservedChar::Backline),
-                // This closure prevents crates' names from being aggregated.
-                //
-                // The point here is to check if the string is preceded by '[' and
-                // "searchIndex". If so, it means this is a crate name and that it
-                // shouldn't be aggregated.
-                |tokens, pos| {
-                    pos < 2 ||
-                    !tokens[pos - 1].eq_char(ReservedChar::OpenBracket) ||
-                    tokens[pos - 2].get_other() != Some("searchIndex")
-                }
-            )
-        })
-        .to_string();
-        format!("{}\n", o)
-    } else {
-        format!("{}\n", contents)
-    }
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
