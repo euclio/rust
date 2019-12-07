@@ -593,6 +593,7 @@ dependencies = [
  "rustfix",
  "serde",
  "serde_json",
+ "shlex",
  "walkdir",
  "winapi 0.3.8",
 ]
@@ -3712,6 +3713,7 @@ version = "0.0.0"
 dependencies = [
  "build_helper",
  "cc",
+ "shlex",
 ]
 
 [[package]]

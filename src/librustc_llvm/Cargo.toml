@@ -16,3 +16,4 @@ emscripten = []
 [build-dependencies]
 build_helper = { path = "../build_helper" }
 cc = "1.0.1"
+shlex = "0.1.1"

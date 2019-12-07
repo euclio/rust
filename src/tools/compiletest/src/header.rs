@@ -446,8 +446,7 @@ impl TestProps {
             }
 
             if let Some(flags) = config.parse_compile_flags(ln) {
-                self.compile_flags
-                    .extend(flags.split_whitespace().map(|s| s.to_owned()));
+                self.compile_flags.extend(shlex::split(&flags).unwrap());
             }
 
             if let Some(edition) = config.parse_edition(ln) {

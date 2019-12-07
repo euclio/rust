@@ -122,7 +122,7 @@ fn main() {
     let cxxflags = output(&mut cmd);
     let mut cfg = cc::Build::new();
     cfg.warnings(false);
-    for flag in cxxflags.split_whitespace() {
+    for flag in shlex::split(&cxxflags).unwrap() {
         // Ignore flags like `-m64` when we're doing a cross build
         if is_crossed && flag.starts_with("-m") {
             continue;
@@ -137,7 +137,7 @@ fn main() {
             continue;
         }
 
-        cfg.flag(flag);
+        cfg.flag(&flag);
     }
 
     for component in &components {
@@ -220,7 +220,8 @@ fn main() {
     // that those -L directories are the same!
     let mut cmd = Command::new(&llvm_config);
     cmd.arg(llvm_link_arg).arg("--ldflags");
-    for lib in output(&mut cmd).split_whitespace() {
+    for lib in shlex::split(&output(&mut cmd)).unwrap() {
+        println!("cargo:warning={:?}", lib);
         if lib.starts_with("-LIBPATH:") {
             println!("cargo:rustc-link-search=native={}", &lib[9..]);
         } else if is_crossed {

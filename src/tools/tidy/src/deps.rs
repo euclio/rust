@@ -160,6 +160,7 @@ const WHITELIST: &[Crate<'_>] = &[
     Crate("semver-parser"),
     Crate("serde"),
     Crate("serde_derive"),
+    Crate("shlex"),
     Crate("smallvec"),
     Crate("stable_deref_trait"),
     Crate("syn"),

@@ -2157,19 +2157,7 @@ impl<'test> TestCx<'test> {
     }
 
     fn split_maybe_args(&self, argstr: &Option<String>) -> Vec<String> {
-        match *argstr {
-            Some(ref s) => s
-                .split(' ')
-                .filter_map(|s| {
-                    if s.chars().all(|c| c.is_whitespace()) {
-                        None
-                    } else {
-                        Some(s.to_owned())
-                    }
-                })
-                .collect(),
-            None => Vec::new(),
-        }
+        argstr.as_ref().map(|args| shlex::split(args).unwrap()).unwrap_or_default()
     }
 
     fn make_cmdline(&self, command: &Command, libpath: &str) -> String {

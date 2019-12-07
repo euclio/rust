@@ -1140,14 +1140,14 @@ impl Step for Compiletest {
 
         let mut hostflags = flags.clone();
         hostflags.push(format!(
-            "-Lnative={}",
+            r#"-Lnative="{}""#,
             builder.test_helpers_out(compiler.host).display()
         ));
         cmd.arg("--host-rustcflags").arg(hostflags.join(" "));
 
         let mut targetflags = flags;
         targetflags.push(format!(
-            "-Lnative={}",
+            r#"-Lnative="{}""#,
             builder.test_helpers_out(target).display()
         ));
         cmd.arg("--target-rustcflags").arg(targetflags.join(" "));
