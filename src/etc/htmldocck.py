@@ -109,6 +109,7 @@ import sys
 import os.path
 import re
 import shlex
+from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 try:
     from html.parser import HTMLParser
@@ -171,7 +172,7 @@ class CustomHTMLParser(HTMLParser):
         return self.__builder.close()
 
 
-Command = namedtuple('Command', 'negated cmd args lineno context')
+Command = namedtuple('Command', 'negated assertion line_number context')
 
 
 class FailedCheck(Exception):
@@ -221,24 +222,54 @@ LINE_PATTERN = re.compile(r'''
 ''', re.X | re.UNICODE)
 
 
-def get_commands(template):
-    with io.open(template, encoding='utf-8') as f:
-        for lineno, line in concat_multi_lines(f):
-            m = LINE_PATTERN.search(line)
-            if not m:
-                continue
+def parse_commands(source_file):
+    for line_number, line in concat_multi_lines(source_file):
+        m = LINE_PATTERN.search(line)
+        if not m:
+            continue
 
-            negated = (m.group('negated') == '!')
-            cmd = m.group('cmd')
-            args = m.group('args')
-            if args and not args[:1].isspace():
-                print_err(lineno, line, 'Invalid template syntax')
-                continue
-            try:
-                args = shlex.split(args)
-            except UnicodeEncodeError:
-                args = [arg.decode('utf-8') for arg in shlex.split(args.encode('utf-8'))]
-            yield Command(negated=negated, cmd=cmd, args=args, lineno=lineno+1, context=line)
+        negated = (m.group('negated') == '!')
+
+        cmd = m.group('cmd')
+        args = m.group('args')
+        if args and not args[:1].isspace():
+            print_err(lineno, line, 'Invalid template syntax')
+            continue
+        try:
+            args = shlex.split(args)
+        except UnicodeEncodeError:
+            args = [arg.decode('utf-8') for arg in shlex.split(args.encode('utf-8'))]
+
+        if cmd == 'has':
+            if len(args) == 1:
+                assertion = Has(path=args[0])
+            elif len(args) == 2:
+                assertion = Has(path=args[0], string=args[1])
+            elif len(args) == 3:
+                assertion = Has(path=args[0], xpath=args[1], string=args[2])
+            else:
+                raise InvalidCheck(textwrap.dedent("""\
+                    Valid @has assertions:
+                      - @has PATH
+                      - @has PATH STRING
+                      - @has PATH XPATH STRING
+                    """))
+        elif cmd == 'matches':
+            if len(args) == 2:
+                assertion = Matches(path=args[0], regex=args[1])
+            elif len(args) == 3:
+                assertion = Matches(path=args[0], xpath=args[1], regex=args[2])
+            else:
+                raise InvalidCheck(textwrap.dedent("""\
+                    Valid @matches assertions:
+                      - @matches PATH REGEX
+                      - @matches PATH XPATH REGEX
+                    """))
+        else:
+            raise InvalidCheck('Unrecognized command: @{}'.format(cmd))
+
+        yield Command(negated=negated, assertion=assertion,
+                      line_number=line_number+1, context=line)
 
 
 def _flatten(node, acc):
@@ -272,29 +303,38 @@ class CachedFiles(object):
         self.trees = {}
         self.last_path = None
 
+
     def resolve_path(self, path):
         if path != '-':
             path = os.path.normpath(path)
             self.last_path = path
             return path
         elif self.last_path is None:
-            raise InvalidCheck('Tried to use the previous path in the first command')
+            raise InvalidCheck('Used "-" in the first command')
         else:
             return self.last_path
 
+
     def get_file(self, path):
+        """
+        Reads the contents of a file, caches it, and returns the contents.
+
+        Raises OSError if the path is a directory or cannot be read.
+        """
         path = self.resolve_path(path)
         if path in self.files:
             return self.files[path]
 
         abspath = os.path.join(self.root, path)
-        if not(os.path.exists(abspath) and os.path.isfile(abspath)):
-            raise FailedCheck('File does not exist {!r}'.format(path))
 
-        with io.open(abspath, encoding='utf-8') as f:
-            data = f.read()
-            self.files[path] = data
-            return data
+        try:
+            with io.open(abspath, encoding='utf-8') as f:
+                data = f.read()
+                self.files[path] = data
+                return data
+        except IOError as e:
+            raise FailedCheck(e)
+
 
     def get_tree(self, path):
         path = self.resolve_path(path)
@@ -313,11 +353,14 @@ class CachedFiles(object):
             self.trees[path] = tree
             return self.trees[path]
 
-    def get_dir(self, path):
+
+    def assert_dir(self, path):
+        "Raises an OSError if the path does not exist or is not a directory."
         path = self.resolve_path(path)
         abspath = os.path.join(self.root, path)
-        if not(os.path.exists(abspath) and os.path.isdir(abspath)):
-            raise FailedCheck('Directory does not exist {!r}'.format(path))
+
+        if not os.path.isdir(abspath):
+            raise FailedCheck('{!r} is not a directory'.format(abspath))
 
 
 def check_string(data, pat, regexp):
@@ -391,6 +434,75 @@ def print_err(lineno, context, err, message=None):
 
 
 ERR_COUNT = 0
+
+
+class Directive:
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def check(self, cache):
+        pass
+
+
+class Has(Directive):
+    def __init__(self, path, string=None, xpath=None):
+        if xpath is not None and string is None:
+            raise ValueError('cannot specify XPath with no string')
+
+        self.path = path
+        self.string = string
+        self.xpath = xpath
+
+
+    def check(self, cache):
+        if string is None and xpath is None:
+            cache.get_file(self.path)
+        elif xpath is None:
+            if self.string not in cache.get_file(self.path):
+                raise FailedCheck('"{}" not found in {}'.format(self.pattern, self.path))
+        else:
+            raise NotImplemented
+
+
+
+class Matches(Directive):
+    def __init__(self, path, regex, xpath=None):
+        self.path = path
+        self.regex= regex
+        self.xpath = xpath
+
+
+    def check(self, cache):
+        if xpath is None:
+            if re.search(self.regex, cache.get_file(self.path), flags=re.UNICODE) is None:
+                raise FailedCheck('no match found')
+        else:
+            raise NotImplemented
+
+
+class Count(Directive):
+    """
+    Checks for the occurrence of the given XPath in the specified file.
+
+    The number of occurrences must match the given count.
+    """
+
+    def __init__(path, xpath, count):
+        self.path = path
+        self.xpath = xpath
+        self.count = count
+
+        # FIXME: Disallow negation?
+
+
+class HasDir(Directive):
+    "Checks for the existence of the given directory."
+
+    def __init__(self, path):
+        self.path = path
+
+    def check(self, cache):
+        cache.assert_dir(self.path)
 
 
 def check_command(c, cache):
@@ -470,7 +582,21 @@ if __name__ == '__main__':
         stderr('Usage: {} <doc dir> <template>'.format(sys.argv[0]))
         raise SystemExit(1)
 
-    check(sys.argv[1], get_commands(sys.argv[2]))
-    if ERR_COUNT:
+    target = sys.argv[1]
+    template = sys.argv[2]
+
+    cache = CachedFiles(target)
+    err_count = 0
+    for command in parse_commands(template):
+        try:
+            command.check(cache)
+        except FailedCheck as failed_check:
+            if not negated:
+                err_count += 1
+                stderr("{}: {}", command.line_number, failed_check)
+                stderr(command.context)
+
+
+    if err_count:
         stderr("\nEncountered {} errors".format(ERR_COUNT))
         raise SystemExit(1)
