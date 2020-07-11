@@ -44,6 +44,9 @@ pub use self::collect_trait_impls::COLLECT_TRAIT_IMPLS;
 mod check_code_block_syntax;
 pub use self::check_code_block_syntax::CHECK_CODE_BLOCK_SYNTAX;
 
+mod spellcheck;
+pub use self::spellcheck::SPELLCHECK;
+
 mod calculate_doc_coverage;
 pub use self::calculate_doc_coverage::CALCULATE_DOC_COVERAGE;
 
@@ -102,6 +105,7 @@ pub const DEFAULT_PASSES: &[ConditionalPass] = &[
     ConditionalPass::new(STRIP_PRIV_IMPORTS, WhenDocumentPrivate),
     ConditionalPass::always(COLLECT_INTRA_DOC_LINKS),
     ConditionalPass::always(CHECK_CODE_BLOCK_SYNTAX),
+    ConditionalPass::always(SPELLCHECK),
     ConditionalPass::always(PROPAGATE_DOC_CFG),
 ];
 
