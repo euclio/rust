@@ -38,7 +38,9 @@ use crate::doctest;
 use crate::html::highlight;
 use crate::html::toc::TocBuilder;
 
-use pulldown_cmark::{html, BrokenLink, CodeBlockKind, CowStr, Event, Options, Parser, Tag};
+use pulldown_cmark::{
+    html, BrokenLink, CodeBlockKind, CowStr, Event, LinkType, Options, Parser, Tag,
+};
 
 #[cfg(test)]
 mod tests;
@@ -353,8 +355,6 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for LinkReplacer<'a, I> {
     type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use pulldown_cmark::LinkType;
-
         let mut event = self.inner.next();
 
         // Replace intra-doc links and remove disambiguators from shortcut links (`[fn@f]`).
@@ -1064,7 +1064,13 @@ pub fn plain_text_summary(md: &str) -> String {
     s
 }
 
-pub fn markdown_links(md: &str) -> Vec<(String, Option<Range<usize>>)> {
+pub struct Link {
+    pub dest: String,
+    pub kind: LinkType,
+    pub range: Option<Range<usize>>,
+}
+
+pub fn markdown_links(md: &str) -> Vec<Link> {
     if md.is_empty() {
         return vec![];
     }
@@ -1088,9 +1094,13 @@ pub fn markdown_links(md: &str) -> Vec<(String, Option<Range<usize>>)> {
         };
 
         let mut push = |link: BrokenLink<'_>| {
-            // FIXME: use `link.span` instead of `locate`
-            // (doing it now includes the `[]` as well as the text)
-            shortcut_links.push((link.reference.to_owned(), locate(link.reference)));
+            shortcut_links.push(Link {
+                dest: link.reference.to_owned(),
+                kind: link.link_type,
+                // FIXME: use `link.span` instead of `locate`
+                // (doing it now includes the `[]` as well as the text)
+                range: locate(link.reference),
+            });
             None
         };
         let p = Parser::new_with_broken_link_callback(md, opts(), Some(&mut push));
@@ -1101,11 +1111,13 @@ pub fn markdown_links(md: &str) -> Vec<(String, Option<Range<usize>>)> {
         let iter = Footnotes::new(HeadingLinks::new(p, None, &mut ids));
 
         for ev in iter {
-            if let Event::Start(Tag::Link(_, dest, _)) = ev {
+            if let Event::Start(Tag::Link(kind, dest, _)) = ev {
                 debug!("found link: {}", dest);
                 links.push(match dest {
-                    CowStr::Borrowed(s) => (s.to_owned(), locate(s)),
-                    s @ (CowStr::Boxed(..) | CowStr::Inlined(..)) => (s.into_string(), None),
+                    CowStr::Borrowed(s) => Link { dest: s.to_string(), kind, range: locate(s) },
+                    s @ (CowStr::Boxed(..) | CowStr::Inlined(..)) => {
+                        Link { dest: s.to_string(), kind, range: None }
+                    }
                 });
             }
         }

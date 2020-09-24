@@ -42,7 +42,10 @@ warning: unresolved link to `Qux:Y`
 LL |        /// [Qux:Y]
    |             ^^^^^ no item named `Qux:Y` in `intra_links_warning`
    |
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+help: escape brackets that are not meant as a link with a backslash
+   |
+LL |        /// \[Qux:Y\]
+   |            ^^     ^^
 
 warning: unresolved link to `error`
   --> $DIR/intra-links-warning.rs:58:30
@@ -50,7 +53,10 @@ warning: unresolved link to `error`
 LL |  * time to introduce a link [error]*/
    |                              ^^^^^ no item named `error` in `intra_links_warning`
    |
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+help: escape brackets that are not meant as a link with a backslash
+   |
+LL |  * time to introduce a link \[error\]*/
+   |                             ^^     ^^
 
 warning: unresolved link to `error`
   --> $DIR/intra-links-warning.rs:64:30
@@ -58,7 +64,10 @@ warning: unresolved link to `error`
 LL |  * time to introduce a link [error]
    |                              ^^^^^ no item named `error` in `intra_links_warning`
    |
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+help: escape brackets that are not meant as a link with a backslash
+   |
+LL |  * time to introduce a link \[error\]
+   |                             ^^     ^^
 
 warning: unresolved link to `error`
   --> $DIR/intra-links-warning.rs:68:1
@@ -71,7 +80,7 @@ LL | #[doc = "single line [error]"]
            single line [error]
                         ^^^^^
    = note: no item named `error` in `intra_links_warning`
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+   = help: to escape `[` and `]` characters, add `\` before them
 
 warning: unresolved link to `error`
   --> $DIR/intra-links-warning.rs:71:1
@@ -84,7 +93,7 @@ LL | #[doc = "single line with \"escaping\" [error]"]
            single line with "escaping" [error]
                                         ^^^^^
    = note: no item named `error` in `intra_links_warning`
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+   = help: to escape `[` and `]` characters, add `\` before them
 
 warning: unresolved link to `error`
   --> $DIR/intra-links-warning.rs:74:1
@@ -99,7 +108,7 @@ LL | | /// [error]
            [error]
             ^^^^^
    = note: no item named `error` in `intra_links_warning`
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+   = help: to escape `[` and `]` characters, add `\` before them
 
 warning: unresolved link to `error1`
   --> $DIR/intra-links-warning.rs:80:11
@@ -107,7 +116,10 @@ warning: unresolved link to `error1`
 LL | /// docs [error1]
    |           ^^^^^^ no item named `error1` in `intra_links_warning`
    |
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+help: escape brackets that are not meant as a link with a backslash
+   |
+LL | /// docs \[error1\]
+   |          ^^      ^^
 
 warning: unresolved link to `error2`
   --> $DIR/intra-links-warning.rs:82:11
@@ -115,7 +127,10 @@ warning: unresolved link to `error2`
 LL | /// docs [error2]
    |           ^^^^^^ no item named `error2` in `intra_links_warning`
    |
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+help: escape brackets that are not meant as a link with a backslash
+   |
+LL | /// docs \[error2\]
+   |          ^^      ^^
 
 warning: unresolved link to `BarA`
   --> $DIR/intra-links-warning.rs:21:10
@@ -123,7 +138,10 @@ warning: unresolved link to `BarA`
 LL | /// bar [BarA] bar
    |          ^^^^ no item named `BarA` in `intra_links_warning`
    |
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+help: escape brackets that are not meant as a link with a backslash
+   |
+LL | /// bar \[BarA\] bar
+   |         ^^    ^^
 
 warning: unresolved link to `BarB`
   --> $DIR/intra-links-warning.rs:27:9
@@ -131,7 +149,10 @@ warning: unresolved link to `BarB`
 LL |  * bar [BarB] bar
    |         ^^^^ no item named `BarB` in `intra_links_warning`
    |
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+help: escape brackets that are not meant as a link with a backslash
+   |
+LL |  * bar \[BarB\] bar
+   |        ^^    ^^
 
 warning: unresolved link to `BarC`
   --> $DIR/intra-links-warning.rs:34:6
@@ -139,7 +160,10 @@ warning: unresolved link to `BarC`
 LL | bar [BarC] bar
    |      ^^^^ no item named `BarC` in `intra_links_warning`
    |
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+help: escape brackets that are not meant as a link with a backslash
+   |
+LL | bar \[BarC\] bar
+   |     ^^    ^^
 
 warning: unresolved link to `BarD`
   --> $DIR/intra-links-warning.rs:45:1
@@ -152,7 +176,7 @@ LL | #[doc = "Foo\nbar [BarD] bar\nbaz"]
            bar [BarD] bar
                 ^^^^
    = note: no item named `BarD` in `intra_links_warning`
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+   = help: to escape `[` and `]` characters, add `\` before them
 
 warning: unresolved link to `BarF`
   --> $DIR/intra-links-warning.rs:50:9
@@ -168,7 +192,7 @@ LL | f!("Foo\nbar [BarF] bar\nbaz");
            bar [BarF] bar
                 ^^^^
    = note: no item named `BarF` in `intra_links_warning`
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+   = help: to escape `[` and `]` characters, add `\` before them
    = note: this warning originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
 
 warning: 19 warnings emitted

@@ -15,17 +15,19 @@ use rustc_session::lint;
 use rustc_span::hygiene::MacroKind;
 use rustc_span::symbol::Ident;
 use rustc_span::symbol::Symbol;
-use rustc_span::DUMMY_SP;
+use rustc_span::{DUMMY_SP, BytePos};
 use smallvec::{smallvec, SmallVec};
 
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::ops::Range;
 
+use pulldown_cmark::LinkType;
+
 use crate::clean::*;
 use crate::core::DocContext;
 use crate::fold::DocFolder;
-use crate::html::markdown::markdown_links;
+use crate::html::markdown::{markdown_links, Link};
 use crate::passes::Pass;
 
 use super::span_of_attrs;
@@ -848,16 +850,8 @@ impl<'a, 'tcx> DocFolder for LinkCollector<'a, 'tcx> {
             }
         });
 
-        for (ori_link, link_range) in markdown_links(&dox) {
-            self.resolve_link(
-                &mut item,
-                &dox,
-                &current_item,
-                parent_node,
-                &parent_name,
-                ori_link,
-                link_range,
-            );
+        for link in markdown_links(&dox) {
+            self.resolve_link(&mut item, &dox, &current_item, parent_node, &parent_name, link);
         }
 
         if item.is_mod() && !item.attrs.inner_docs {
@@ -884,26 +878,25 @@ impl LinkCollector<'_, '_> {
         current_item: &Option<String>,
         parent_node: Option<DefId>,
         parent_name: &Option<String>,
-        ori_link: String,
-        link_range: Option<Range<usize>>,
+        ori_link: Link,
     ) {
-        trace!("considering link '{}'", ori_link);
+        trace!("considering link '{}'", ori_link.dest);
 
         // Bail early for real links.
-        if ori_link.contains('/') {
+        if ori_link.dest.contains('/') {
             return;
         }
 
         // [] is mostly likely not supposed to be a link
-        if ori_link.is_empty() {
+        if ori_link.dest.is_empty() {
             return;
         }
 
         let cx = self.cx;
-        let link = ori_link.replace("`", "");
+        let link = ori_link.dest.replace("`", "");
         let parts = link.split('#').collect::<Vec<_>>();
         let (link, extra_fragment) = if parts.len() > 2 {
-            anchor_failure(cx, &item, &link, dox, link_range, AnchorFailure::MultipleAnchors);
+            anchor_failure(cx, &item, &link, dox, ori_link.range, AnchorFailure::MultipleAnchors);
             return;
         } else if parts.len() == 2 {
             if parts[0].trim().is_empty() {
@@ -966,7 +959,7 @@ impl LinkCollector<'_, '_> {
                     path_str,
                     disambiguator,
                     dox,
-                    link_range,
+                    &ori_link,
                     smallvec![err_kind],
                 );
                 return;
@@ -989,7 +982,6 @@ impl LinkCollector<'_, '_> {
                 module_id,
                 extra_fragment,
                 &ori_link,
-                link_range.clone(),
             ) {
                 Some(x) => x,
                 None => return,
@@ -1013,7 +1005,7 @@ impl LinkCollector<'_, '_> {
                             &item,
                             path_str,
                             dox,
-                            link_range,
+                            ori_link.range,
                             AnchorFailure::RustdocAnchorConflict(prim),
                         );
                         return;
@@ -1023,7 +1015,7 @@ impl LinkCollector<'_, '_> {
                 } else {
                     // `[char]` when a `char` module is in scope
                     let candidates = vec![res, prim];
-                    ambiguity_error(cx, &item, path_str, dox, link_range, candidates);
+                    ambiguity_error(cx, &item, path_str, dox, ori_link.range, candidates);
                     return;
                 }
             }
@@ -1032,7 +1024,7 @@ impl LinkCollector<'_, '_> {
         let report_mismatch = |specified: Disambiguator, resolved: Disambiguator| {
             // The resolved item did not match the disambiguator; give a better error than 'not found'
             let msg = format!("incompatible link kind for `{}`", path_str);
-            report_diagnostic(cx, &msg, &item, dox, &link_range, |diag, sp| {
+            report_diagnostic(cx, &msg, &item, dox, &ori_link.range, |diag, sp| {
                 let note = format!(
                     "this link resolved to {} {}, which is not {} {}",
                     resolved.article(),
@@ -1041,14 +1033,14 @@ impl LinkCollector<'_, '_> {
                     specified.descr()
                 );
                 diag.note(&note);
-                suggest_disambiguator(resolved, diag, path_str, dox, sp, &link_range);
+                suggest_disambiguator(resolved, diag, path_str, dox, sp, &ori_link.range);
             });
         };
         if let Res::PrimTy(_) = res {
             match disambiguator {
                 Some(Disambiguator::Primitive | Disambiguator::Namespace(_)) | None => {
                     item.attrs.links.push(ItemLink {
-                        link: ori_link,
+                        link: ori_link.dest,
                         link_text: path_str.to_owned(),
                         did: None,
                         fragment,
@@ -1098,12 +1090,17 @@ impl LinkCollector<'_, '_> {
                 if self.cx.tcx.privacy_access_levels(LOCAL_CRATE).is_exported(hir_src)
                     && !self.cx.tcx.privacy_access_levels(LOCAL_CRATE).is_exported(hir_dst)
                 {
-                    privacy_error(cx, &item, &path_str, dox, link_range);
+                    privacy_error(cx, &item, &path_str, dox, ori_link.range);
                     return;
                 }
             }
             let id = register_res(cx, res);
-            item.attrs.links.push(ItemLink { link: ori_link, link_text, did: Some(id), fragment });
+            item.attrs.links.push(ItemLink {
+                link: ori_link.dest,
+                link_text,
+                did: Some(id),
+                fragment,
+            });
         }
     }
 
@@ -1116,8 +1113,7 @@ impl LinkCollector<'_, '_> {
         current_item: &Option<String>,
         base_node: DefId,
         extra_fragment: Option<String>,
-        ori_link: &str,
-        link_range: Option<Range<usize>>,
+        ori_link: &Link,
     ) -> Option<(Res, Option<String>)> {
         match disambiguator.map(Disambiguator::ns) {
             Some(ns @ (ValueNS | TypeNS)) => {
@@ -1146,7 +1142,7 @@ impl LinkCollector<'_, '_> {
                             path_str,
                             disambiguator,
                             dox,
-                            link_range,
+                            &ori_link,
                             smallvec![kind],
                         );
                         // This could just be a normal link or a broken link
@@ -1155,7 +1151,7 @@ impl LinkCollector<'_, '_> {
                         return None;
                     }
                     Err(ErrorKind::AnchorFailure(msg)) => {
-                        anchor_failure(self.cx, &item, &ori_link, dox, link_range, msg);
+                        anchor_failure(self.cx, &item, &ori_link.dest, dox, ori_link.range.clone(), msg);
                         return None;
                     }
                 }
@@ -1178,7 +1174,7 @@ impl LinkCollector<'_, '_> {
                             Ok(res)
                         }
                         Err(ErrorKind::AnchorFailure(msg)) => {
-                            anchor_failure(self.cx, &item, ori_link, dox, link_range, msg);
+                            anchor_failure(self.cx, &item, &ori_link.dest, dox, ori_link.range.clone(), msg);
                             return None;
                         }
                         Err(ErrorKind::Resolve(box kind)) => Err(kind),
@@ -1192,7 +1188,7 @@ impl LinkCollector<'_, '_> {
                     ) {
                         Ok(res) => Ok(res),
                         Err(ErrorKind::AnchorFailure(msg)) => {
-                            anchor_failure(self.cx, &item, ori_link, dox, link_range, msg);
+                            anchor_failure(self.cx, &item, &ori_link.dest, dox, ori_link.range.clone(), msg);
                             return None;
                         }
                         Err(ErrorKind::Resolve(box kind)) => Err(kind),
@@ -1223,7 +1219,7 @@ impl LinkCollector<'_, '_> {
                         path_str,
                         disambiguator,
                         dox,
-                        link_range,
+                        &ori_link,
                         candidates.into_iter().filter_map(|res| res.err()).collect(),
                     );
                     // this could just be a normal link
@@ -1245,7 +1241,7 @@ impl LinkCollector<'_, '_> {
                         &item,
                         path_str,
                         dox,
-                        link_range,
+                        ori_link.range.clone(),
                         candidates.present_items().collect(),
                     );
                     return None;
@@ -1274,7 +1270,7 @@ impl LinkCollector<'_, '_> {
                             path_str,
                             disambiguator,
                             dox,
-                            link_range,
+                            &ori_link,
                             smallvec![kind],
                         );
                         return None;
@@ -1519,7 +1515,7 @@ fn resolution_failure(
     path_str: &str,
     disambiguator: Option<Disambiguator>,
     dox: &str,
-    link_range: Option<Range<usize>>,
+    ori_link: &Link,
     kinds: SmallVec<[ResolutionFailure<'_>; 3]>,
 ) {
     report_diagnostic(
@@ -1527,7 +1523,7 @@ fn resolution_failure(
         &format!("unresolved link to `{}`", path_str),
         item,
         dox,
-        &link_range,
+        &ori_link.range,
         |diag, sp| {
             let in_scope = kinds.iter().any(|kind| kind.res().is_some());
             let item = |res: Res| {
@@ -1589,11 +1585,23 @@ fn resolution_failure(
                             diag.note(&note);
                         }
                         // If the link has `::` in the path, assume it's meant to be an intra-doc link
-                        if !path_str.contains("::") {
+                        if !path_str.contains("::") && matches!(ori_link.kind, LinkType::Shortcut) {
                             // Otherwise, the `[]` might be unrelated.
-                            // FIXME(https://github.com/raphlinus/pulldown-cmark/issues/373):
-                            // don't show this for autolinks (`<>`), `()` style links, or reference links
-                            diag.help(r#"to escape `[` and `]` characters, add '\' before them like `\[` or `\]`"#);
+                            if let Some(sp) = sp {
+                                let lo = sp.shrink_to_lo().with_lo(sp.lo() - BytePos(1));
+                                let hi = sp.shrink_to_hi().with_hi(sp.hi() + BytePos(1));
+
+                                diag.multipart_suggestion(
+                                    "escape brackets that are not meant as a link with a backslash",
+                                    vec![
+                                        (lo, String::from(r"\[")),
+                                        (hi, String::from(r"\]")),
+                                    ],
+                                    Applicability::MaybeIncorrect,
+                                );
+                            } else {
+                                diag.help(r"to escape `[` and `]` characters, add `\` before them");
+                            }
                         }
                         continue;
                     }
@@ -1607,7 +1615,7 @@ fn resolution_failure(
                                 path_str,
                                 dox,
                                 sp,
-                                &link_range,
+                                &ori_link.range,
                             )
                         }
 

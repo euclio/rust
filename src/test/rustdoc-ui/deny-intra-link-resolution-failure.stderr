@@ -9,7 +9,10 @@ note: the lint level is defined here
    |
 LL | #![deny(broken_intra_doc_links)]
    |         ^^^^^^^^^^^^^^^^^^^^^^
-   = help: to escape `[` and `]` characters, add '\' before them like `\[` or `\]`
+help: escape brackets that are not meant as a link with a backslash
+   |
+LL | /// \[v2\]
+   |     ^^  ^^
 
 error: aborting due to previous error
 
