@@ -6,8 +6,8 @@ use std::io::{self, BufReader};
 use std::lazy::SyncLazy as Lazy;
 use std::path::{Component, Path, PathBuf};
 
+use fd_lock::RwLock;
 use itertools::Itertools;
-use rustc_data_structures::flock;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use serde::Serialize;
 
@@ -153,7 +153,8 @@ pub(super) fn write_shared(
     // docs placed in the output directory, so this needs to be a synchronized
     // operation with respect to all other rustdocs running around.
     let lock_file = cx.dst.join(".lock");
-    let _lock = try_err!(flock::Lock::new(&lock_file, true, true, true), &lock_file);
+    let mut lock = RwLock::new(try_err!(File::create(&lock_file), lock_file));
+    let _lock = try_err!(lock.write(), &lock_file);
 
     // Minified resources are usually toolchain resources. If they're not, they should use `cx.write_minify` directly.
     fn write_minify(

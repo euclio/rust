@@ -110,6 +110,7 @@ const PERMITTED_DEPENDENCIES: &[&str] = &[
     "expect-test",
     "fake-simd",
     "fallible-iterator", // dependency of `thorin`
+    "fd-lock",
     "filetime",
     "fixedbitset",
     "flate2",
@@ -230,6 +231,12 @@ const PERMITTED_DEPENDENCIES: &[&str] = &[
     "winapi-i686-pc-windows-gnu",
     "winapi-util",
     "winapi-x86_64-pc-windows-gnu",
+    "windows-sys",
+    "windows_aarch64_msvc",
+    "windows_i686_gnu",
+    "windows_i686_msvc",
+    "windows_x86_64_gnu",
+    "windows_x86_64_msvc",
     // this is a false-positive: it's only used by rustfmt, but because it's enabled through a feature, tidy thinks it's used by rustc as well.
     "yansi-term",
 ];

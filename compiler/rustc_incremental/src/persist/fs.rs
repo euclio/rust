@@ -103,9 +103,9 @@
 //! unsupported file system and emit a warning in that case. This is not yet
 //! implemented.
 
+use rustc_data_structures::base_n;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_data_structures::svh::Svh;
-use rustc_data_structures::{base_n, flock};
 use rustc_errors::ErrorReported;
 use rustc_fs_util::{link_or_copy, LinkOrCopy};
 use rustc_session::{Session, StableCrateId};
@@ -506,16 +506,14 @@ fn create_dir(sess: &Session, path: &Path, dir_tag: &str) -> Result<(), ErrorRep
 fn lock_directory(
     sess: &Session,
     session_dir: &Path,
-) -> Result<(flock::Lock, PathBuf), ErrorReported> {
+) -> Result<(fd_lock::RwLockWriteGuard<'_, File>, PathBuf), ErrorReported> {
     let lock_file_path = lock_file_path(session_dir);
     debug!("lock_directory() - lock_file: {}", lock_file_path.display());
 
-    match flock::Lock::new(
-        &lock_file_path,
-        false, // don't wait
-        true,  // create the lock file
-        true,
-    ) {
+    let lock =
+        fd_lock::RwLock::new(File::create(&lock_file_path)).and_then(|lock| lock.try_write());
+
+    match lock {
         // the lock should be exclusive
         Ok(lock) => Ok((lock, lock_file_path)),
         Err(lock_err) => {
