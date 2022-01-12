@@ -31,30 +31,33 @@
 
 use crate::Build;
 use std::env;
-use std::io;
+use std::ffi::OsString;
 use std::mem;
 use std::ptr;
 
-use winapi::shared::minwindef::{DWORD, FALSE, LPVOID};
-use winapi::um::errhandlingapi::SetErrorMode;
-use winapi::um::handleapi::{CloseHandle, DuplicateHandle};
-use winapi::um::jobapi2::{AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject};
-use winapi::um::processthreadsapi::{GetCurrentProcess, OpenProcess};
-use winapi::um::winbase::{BELOW_NORMAL_PRIORITY_CLASS, SEM_NOGPFAULTERRORBOX};
-use winapi::um::winnt::{
-    JobObjectExtendedLimitInformation, DUPLICATE_SAME_ACCESS, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-    JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_PRIORITY_CLASS, PROCESS_DUP_HANDLE,
+use windows::Win32::{
+    Foundation::{CloseHandle, DuplicateHandle, DUPLICATE_SAME_ACCESS, HANDLE},
+    System::{
+        Diagnostics::Debug::{SetErrorMode, SEM_NOGPFAULTERRORBOX, THREAD_ERROR_MODE},
+        JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+            SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_PRIORITY_CLASS,
+        },
+        Threading::{
+            GetCurrentProcess, OpenProcess, BELOW_NORMAL_PRIORITY_CLASS, PROCESS_DUP_HANDLE,
+        },
+    },
 };
 
 pub unsafe fn setup(build: &mut Build) {
     // Enable the Windows Error Reporting dialog which msys disables,
     // so we can JIT debug rustc
-    let mode = SetErrorMode(0);
+    let mode = THREAD_ERROR_MODE(SetErrorMode(THREAD_ERROR_MODE::default()));
     SetErrorMode(mode & !SEM_NOGPFAULTERRORBOX);
 
     // Create a new job object for us to use
-    let job = CreateJobObjectW(ptr::null_mut(), ptr::null());
-    assert!(!job.is_null(), "{}", io::Error::last_os_error());
+    let job = CreateJobObjectW(ptr::null(), OsString::default()).ok().unwrap();
 
     // Indicate that when all handles to the job object are gone that all
     // process in the object should be killed. Note that this includes our
@@ -64,15 +67,16 @@ pub unsafe fn setup(build: &mut Build) {
     info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
     if build.config.low_priority {
         info.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_PRIORITY_CLASS;
-        info.BasicLimitInformation.PriorityClass = BELOW_NORMAL_PRIORITY_CLASS;
+        info.BasicLimitInformation.PriorityClass = BELOW_NORMAL_PRIORITY_CLASS.0;
     }
-    let r = SetInformationJobObject(
+    SetInformationJobObject(
         job,
         JobObjectExtendedLimitInformation,
-        &mut info as *mut _ as LPVOID,
-        mem::size_of_val(&info) as DWORD,
-    );
-    assert!(r != 0, "{}", io::Error::last_os_error());
+        &info as *const _ as *const _,
+        mem::size_of_val(&info) as u32,
+    )
+    .ok()
+    .unwrap();
 
     // Assign our process to this job object. Note that if this fails, one very
     // likely reason is that we are ourselves already in a job object! This can
@@ -83,11 +87,10 @@ pub unsafe fn setup(build: &mut Build) {
     // Also note that nested jobs (why this might fail) are supported in recent
     // versions of Windows, but the version of Windows that our bots are running
     // at least don't support nested job objects.
-    let r = AssignProcessToJobObject(job, GetCurrentProcess());
-    if r == 0 {
+    if let Err(_) = AssignProcessToJobObject(job, GetCurrentProcess()).ok() {
         CloseHandle(job);
         return;
-    }
+    };
 
     // If we've got a parent process (e.g., the python script that called us)
     // then move ownership of this job object up to them. That way if the python
@@ -102,39 +105,40 @@ pub unsafe fn setup(build: &mut Build) {
         Err(..) => return,
     };
 
-    let parent = OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid.parse().unwrap());
+    let parent = match OpenProcess(PROCESS_DUP_HANDLE, false, pid.parse().unwrap()).ok() {
+        Ok(parent) => parent,
+        Err(_) => {
+            // If we get a null parent pointer here, it is possible that either
+            // we have got an invalid pid or the parent process has been closed.
+            // Since the first case rarely happens
+            // (only when wrongly setting the environmental variable),
+            // so it might be better to improve the experience of the second case
+            // when users have interrupted the parent process and we don't finish
+            // duplicating the handle yet.
+            // We just need close the job object if that occurs.
+            CloseHandle(job);
+            return;
+        }
+    };
 
-    // If we get a null parent pointer here, it is possible that either
-    // we have got an invalid pid or the parent process has been closed.
-    // Since the first case rarely happens
-    // (only when wrongly setting the environmental variable),
-    // so it might be better to improve the experience of the second case
-    // when users have interrupted the parent process and we don't finish
-    // duplicating the handle yet.
-    // We just need close the job object if that occurs.
-    if parent.is_null() {
-        CloseHandle(job);
-        return;
-    }
-
-    let mut parent_handle = ptr::null_mut();
-    let r = DuplicateHandle(
+    let mut parent_handle = HANDLE::default();
+    if let Err(_) = DuplicateHandle(
         GetCurrentProcess(),
         job,
         parent,
         &mut parent_handle,
         0,
-        FALSE,
+        false,
         DUPLICATE_SAME_ACCESS,
-    );
-
-    // If this failed, well at least we tried! An example of DuplicateHandle
-    // failing in the past has been when the wrong python2 package spawned this
-    // build system (e.g., the `python2` package in MSYS instead of
-    // `mingw-w64-x86_64-python2`. Not sure why it failed, but the "failure
-    // mode" here is that we only clean everything up when the build system
-    // dies, not when the python parent does, so not too bad.
-    if r != 0 {
+    )
+    .ok()
+    {
+        // If this failed, well at least we tried! An example of DuplicateHandle
+        // failing in the past has been when the wrong python2 package spawned this
+        // build system (e.g., the `python2` package in MSYS instead of
+        // `mingw-w64-x86_64-python2`. Not sure why it failed, but the "failure
+        // mode" here is that we only clean everything up when the build system
+        // dies, not when the python parent does, so not too bad.
         CloseHandle(job);
     }
 }

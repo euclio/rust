@@ -239,40 +239,45 @@ fn format_rusage_data(_child: Child) -> Option<String> {
 #[cfg(windows)]
 fn format_rusage_data(child: Child) -> Option<String> {
     use std::os::windows::io::AsRawHandle;
-    use winapi::um::{processthreadsapi, psapi, timezoneapi};
-    let handle = child.as_raw_handle();
-    macro_rules! try_bool {
-        ($e:expr) => {
-            if $e != 1 {
-                return None;
-            }
-        };
-    }
+    use windows::Win32::{
+        Foundation::HANDLE,
+        System::{
+            ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS},
+            Threading::GetProcessTimes,
+            Time::FileTimeToSystemTime,
+        },
+    };
+
+    let handle = HANDLE(child.as_raw_handle() as isize);
 
     let mut user_filetime = Default::default();
     let mut user_time = Default::default();
     let mut kernel_filetime = Default::default();
     let mut kernel_time = Default::default();
-    let mut memory_counters = psapi::PROCESS_MEMORY_COUNTERS::default();
+    let mut memory_counters = PROCESS_MEMORY_COUNTERS::default();
 
     unsafe {
-        try_bool!(processthreadsapi::GetProcessTimes(
+        GetProcessTimes(
             handle,
             &mut Default::default(),
             &mut Default::default(),
             &mut kernel_filetime,
             &mut user_filetime,
-        ));
-        try_bool!(timezoneapi::FileTimeToSystemTime(&user_filetime, &mut user_time));
-        try_bool!(timezoneapi::FileTimeToSystemTime(&kernel_filetime, &mut kernel_time));
+        )
+        .ok()
+        .ok()?;
+        FileTimeToSystemTime(&user_filetime, &mut user_time).ok().ok()?;
+        FileTimeToSystemTime(&kernel_filetime, &mut kernel_time).ok().ok()?;
 
-        // Unlike on Linux with RUSAGE_CHILDREN, this will only return memory information for the process
-        // with the given handle and none of that process's children.
-        try_bool!(psapi::GetProcessMemoryInfo(
-            handle as _,
-            &mut memory_counters as *mut _ as _,
-            std::mem::size_of::<psapi::PROCESS_MEMORY_COUNTERS_EX>() as u32,
-        ));
+        // Unlike on Linux with RUSAGE_CHILDREN, this will only return memory information for the
+        // process with the given handle and none of that process's children.
+        K32GetProcessMemoryInfo(
+            handle,
+            &mut memory_counters,
+            std::mem::size_of_val(&memory_counters) as u32,
+        )
+        .ok()
+        .ok()?;
     }
 
     // Guide on interpreting these numbers:

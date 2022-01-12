@@ -328,38 +328,43 @@ fn sysroot_candidates() -> Vec<PathBuf> {
         use std::ffi::OsString;
         use std::io;
         use std::os::windows::prelude::*;
-        use std::ptr;
 
-        use winapi::um::libloaderapi::{
-            GetModuleFileNameW, GetModuleHandleExW, GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+        use windows::{
+            core::PCWSTR,
+            Win32::{
+                Foundation::{ERROR_INSUFFICIENT_BUFFER, HINSTANCE},
+                System::LibraryLoader::{
+                    GetModuleFileNameW, GetModuleHandleExW, GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+                },
+            },
         };
 
+        let mut module = HINSTANCE::default();
+
         unsafe {
-            let mut module = ptr::null_mut();
-            let r = GetModuleHandleExW(
+            GetModuleHandleExW(
                 GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-                current_dll_path as usize as *mut _,
+                PCWSTR(current_dll_path as _),
                 &mut module,
-            );
-            if r == 0 {
-                info!("GetModuleHandleExW failed: {}", io::Error::last_os_error());
-                return None;
-            }
-            let mut space = Vec::with_capacity(1024);
-            let r = GetModuleFileNameW(module, space.as_mut_ptr(), space.capacity() as u32);
-            if r == 0 {
-                info!("GetModuleFileNameW failed: {}", io::Error::last_os_error());
-                return None;
-            }
-            let r = r as usize;
-            if r >= space.capacity() {
-                info!("our buffer was too small? {}", io::Error::last_os_error());
-                return None;
-            }
-            space.set_len(r);
-            let os = OsString::from_wide(&space);
-            Some(PathBuf::from(os))
+            )
+            .ok()
+            .inspect_err(|e| info!("GetModuleHandleExW failed: {}", e))
+            .ok()?;
         }
+
+        let mut file_name = [0u16; 1024];
+        let n = unsafe { GetModuleFileNameW(module, &mut file_name) } as usize;
+
+        if n == 0
+            || n == file_name.len()
+                && io::Error::last_os_error().raw_os_error()
+                    == Some(ERROR_INSUFFICIENT_BUFFER.0 as i32)
+        {
+            info!("GetModuleFileNameW failed: {}", io::Error::last_os_error());
+            return None;
+        }
+
+        Some(PathBuf::from(OsString::from_wide(&file_name[0..n])))
     }
 }
 

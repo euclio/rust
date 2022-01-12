@@ -137,35 +137,34 @@ pub fn symlink_dir(config: &Config, src: &Path, dest: &Path) -> io::Result<()> {
     // http://www.flexhex.com/docs/articles/hard-links.phtml
     #[cfg(windows)]
     fn symlink_dir_inner(target: &Path, junction: &Path) -> io::Result<()> {
-        use std::ffi::OsStr;
         use std::os::windows::ffi::OsStrExt;
         use std::ptr;
 
-        use winapi::shared::minwindef::{DWORD, WORD};
-        use winapi::um::fileapi::{CreateFileW, OPEN_EXISTING};
-        use winapi::um::handleapi::CloseHandle;
-        use winapi::um::ioapiset::DeviceIoControl;
-        use winapi::um::winbase::{FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT};
-        use winapi::um::winioctl::FSCTL_SET_REPARSE_POINT;
-        use winapi::um::winnt::{
-            FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_WRITE,
-            IO_REPARSE_TAG_MOUNT_POINT, MAXIMUM_REPARSE_DATA_BUFFER_SIZE, WCHAR,
+        use windows::Win32::{
+            Foundation::{CloseHandle, HANDLE},
+            Storage::FileSystem::{
+                CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
+                FILE_GENERIC_WRITE, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+                OPEN_EXISTING,
+            },
+            System::{
+                Ioctl::FSCTL_SET_REPARSE_POINT, SystemServices::IO_REPARSE_TAG_MOUNT_POINT,
+                IO::DeviceIoControl,
+            },
         };
+
+        const MAXIMUM_REPARSE_DATA_BUFFER_SIZE: usize = 16 * 1024;
 
         #[allow(non_snake_case)]
         #[repr(C)]
         struct REPARSE_MOUNTPOINT_DATA_BUFFER {
-            ReparseTag: DWORD,
-            ReparseDataLength: DWORD,
-            Reserved: WORD,
-            ReparseTargetLength: WORD,
-            ReparseTargetMaximumLength: WORD,
-            Reserved1: WORD,
-            ReparseTarget: WCHAR,
-        }
-
-        fn to_u16s<S: AsRef<OsStr>>(s: S) -> io::Result<Vec<u16>> {
-            Ok(s.as_ref().encode_wide().chain(Some(0)).collect())
+            ReparseTag: u32,
+            ReparseDataLength: u32,
+            Reserved: u16,
+            ReparseTargetLength: u16,
+            ReparseTargetMaximumLength: u16,
+            Reserved1: u16,
+            ReparseTarget: u16,
         }
 
         // We're using low-level APIs to create the junction, and these are more
@@ -175,40 +174,38 @@ pub fn symlink_dir(config: &Config, src: &Path, dest: &Path) -> io::Result<()> {
 
         fs::create_dir(junction)?;
 
-        let path = to_u16s(junction)?;
-
         unsafe {
             let h = CreateFileW(
-                path.as_ptr(),
-                GENERIC_WRITE,
+                junction.as_os_str(),
+                FILE_GENERIC_WRITE,
                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                 ptr::null_mut(),
                 OPEN_EXISTING,
                 FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
-                ptr::null_mut(),
+                HANDLE::default(),
             );
 
             let mut data = [0u8; MAXIMUM_REPARSE_DATA_BUFFER_SIZE as usize];
             let db = data.as_mut_ptr() as *mut REPARSE_MOUNTPOINT_DATA_BUFFER;
             let buf = &mut (*db).ReparseTarget as *mut u16;
-            let mut i = 0;
+            let mut i = 0u16;
             // FIXME: this conversion is very hacky
             let v = br"\??\";
             let v = v.iter().map(|x| *x as u16);
             for c in v.chain(target.as_os_str().encode_wide().skip(4)) {
-                *buf.offset(i) = c;
+                *buf.offset(i as isize) = c;
                 i += 1;
             }
-            *buf.offset(i) = 0;
+            *buf.offset(i as isize) = 0;
             i += 1;
-            (*db).ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
-            (*db).ReparseTargetMaximumLength = (i * 2) as WORD;
-            (*db).ReparseTargetLength = ((i - 1) * 2) as WORD;
-            (*db).ReparseDataLength = (*db).ReparseTargetLength as DWORD + 12;
+            (*db).ReparseTag = IO_REPARSE_TAG_MOUNT_POINT as u32;
+            (*db).ReparseTargetMaximumLength = i * 2;
+            (*db).ReparseTargetLength = (i - 1) * 2;
+            (*db).ReparseDataLength = (*db).ReparseTargetLength as u32 + 12;
 
             let mut ret = 0;
             let res = DeviceIoControl(
-                h as *mut _,
+                h,
                 FSCTL_SET_REPARSE_POINT,
                 data.as_ptr() as *mut _,
                 (*db).ReparseDataLength + 8,
@@ -216,11 +213,11 @@ pub fn symlink_dir(config: &Config, src: &Path, dest: &Path) -> io::Result<()> {
                 0,
                 &mut ret,
                 ptr::null_mut(),
-            );
+            )
+            .ok();
 
-            let out = if res == 0 { Err(io::Error::last_os_error()) } else { Ok(()) };
             CloseHandle(h);
-            out
+            res.map_err(|e| io::Error::from_raw_os_error(e.code().0))
         }
     }
 }

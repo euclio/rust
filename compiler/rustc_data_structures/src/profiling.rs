@@ -696,21 +696,23 @@ fn get_thread_id() -> u32 {
 cfg_if! {
     if #[cfg(windows)] {
         pub fn get_resident_set_size() -> Option<usize> {
-            use std::mem::{self, MaybeUninit};
-            use winapi::shared::minwindef::DWORD;
-            use winapi::um::processthreadsapi::GetCurrentProcess;
-            use winapi::um::psapi::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
+            use std::mem;
+            use windows::Win32::System::{
+                ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS},
+                Threading::GetCurrentProcess,
+            };
 
-            let mut pmc = MaybeUninit::<PROCESS_MEMORY_COUNTERS>::uninit();
-            match unsafe {
-                GetProcessMemoryInfo(GetCurrentProcess(), pmc.as_mut_ptr(), mem::size_of_val(&pmc) as DWORD)
-            } {
-                0 => None,
-                _ => {
-                    let pmc = unsafe { pmc.assume_init() };
-                    Some(pmc.WorkingSetSize as usize)
-                }
+            let mut pmc = PROCESS_MEMORY_COUNTERS::default();
+            unsafe {
+                K32GetProcessMemoryInfo(
+                    GetCurrentProcess(),
+                    &mut pmc,
+                    mem::size_of_val(&pmc) as u32,
+                )
             }
+            .ok()
+            .ok()?;
+            Some(pmc.WorkingSetSize as usize)
         }
     } else if #[cfg(unix)] {
         pub fn get_resident_set_size() -> Option<usize> {

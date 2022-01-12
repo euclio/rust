@@ -5,6 +5,7 @@
 #![feature(thread_spawn_unchecked)]
 #![feature(nll)]
 #![feature(once_cell)]
+#![feature(result_option_inspect)]
 #![recursion_limit = "256"]
 #![allow(rustc::potential_query_instability)]
 
