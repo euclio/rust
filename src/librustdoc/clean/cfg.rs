@@ -171,11 +171,8 @@ impl Cfg {
     pub(crate) fn render_long_html(&self) -> String {
         let on = if self.should_use_with_in_description() { "with" } else { "on" };
 
-        let mut msg = format!(
-            "This is supported {} <strong>{}</strong>",
-            on,
-            Display(self, Format::LongHtml)
-        );
+        let mut msg =
+            format!("Available {on} <strong>{}</strong>", Display(self, Format::LongHtml));
         if self.should_append_only_to_description() {
             msg.push_str(" only");
         }
@@ -187,7 +184,7 @@ impl Cfg {
     pub(crate) fn render_long_plain(&self) -> String {
         let on = if self.should_use_with_in_description() { "with" } else { "on" };
 
-        let mut msg = format!("This is supported {} {}", on, Display(self, Format::LongPlain));
+        let mut msg = format!("Available {on} {}", Display(self, Format::LongPlain));
         if self.should_append_only_to_description() {
             msg.push_str(" only");
         }
@@ -214,7 +211,7 @@ impl Cfg {
     }
 
     fn should_use_with_in_description(&self) -> bool {
-        matches!(self, Cfg::Cfg(sym::target_feature, _))
+        matches!(self, Cfg::Cfg(sym::target_feature | sym::feature, _))
     }
 
     /// Attempt to simplify this cfg by assuming that `assume` is already known to be true, will
