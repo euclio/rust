@@ -103,19 +103,20 @@
 //! unsupported file system and emit a warning in that case. This is not yet
 //! implemented.
 
+use rustc_data_structures::base_n;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_data_structures::svh::Svh;
-use rustc_data_structures::{base_n, flock};
 use rustc_errors::ErrorGuaranteed;
 use rustc_fs_util::{link_or_copy, LinkOrCopy};
 use rustc_session::{Session, StableCrateId};
 
-use std::fs as std_fs;
+use std::fs::{self as std_fs, File};
 use std::io::{self, ErrorKind};
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use fd_lock::RwLock;
 use rand::{thread_rng, RngCore};
 
 #[cfg(test)]
@@ -405,45 +406,30 @@ pub fn delete_all_session_dir_contents(sess: &Session) -> io::Result<()> {
     Ok(())
 }
 
-fn copy_files(sess: &Session, target_dir: &Path, source_dir: &Path) -> Result<bool, ()> {
+fn copy_files(sess: &Session, target_dir: &Path, source_dir: &Path) -> io::Result<bool> {
     // We acquire a shared lock on the lock file of the directory, so that
     // nobody deletes it out from under us while we are reading from it.
     let lock_file_path = lock_file_path(source_dir);
 
-    // not exclusive
-    let Ok(_lock) = flock::Lock::new(
-        &lock_file_path,
-        false, // don't wait,
-        false, // don't create
-        false,
-    ) else {
-        // Could not acquire the lock, don't try to copy from here
-        return Err(());
-    };
+    let lock = RwLock::new(File::open(lock_file_path)?);
+    let _guard = lock.read()?;
 
-    let Ok(source_dir_iterator) = source_dir.read_dir() else {
-        return Err(());
-    };
+    let source_dir_iterator = source_dir.read_dir()?;
 
     let mut files_linked = 0;
     let mut files_copied = 0;
 
     for entry in source_dir_iterator {
-        match entry {
-            Ok(entry) => {
-                let file_name = entry.file_name();
+        let entry = entry?;
+        let file_name = entry.file_name();
 
-                let target_file_path = target_dir.join(file_name);
-                let source_path = entry.path();
+        let target_file_path = target_dir.join(file_name);
+        let source_path = entry.path();
 
-                debug!("copying into session dir: {}", source_path.display());
-                match link_or_copy(source_path, target_file_path) {
-                    Ok(LinkOrCopy::Link) => files_linked += 1,
-                    Ok(LinkOrCopy::Copy) => files_copied += 1,
-                    Err(_) => return Err(()),
-                }
-            }
-            Err(_) => return Err(()),
+        debug!("copying into session dir: {}", source_path.display());
+        match link_or_copy(source_path, target_file_path)? {
+            LinkOrCopy::Link => files_linked += 1,
+            LinkOrCopy::Copy => files_copied += 1,
         }
     }
 
@@ -509,12 +495,15 @@ fn lock_directory(
     let lock_file_path = lock_file_path(session_dir);
     debug!("lock_directory() - lock_file: {}", lock_file_path.display());
 
-    match flock::Lock::new(
-        &lock_file_path,
-        false, // don't wait
-        true,  // create the lock file
-        true,
-    ) {
+    let lock = File::create(lock_file_path).map(RwLock::new).map_err(|e| {
+        let mut err = sess.struct_err(&format!(
+            "incremental compilation: could not create session directory lock file: {}",
+            e,
+        ));
+        err.emit()
+    })?;
+
+    match lock.write() {
         // the lock should be exclusive
         Ok(lock) => Ok((lock, lock_file_path)),
         Err(lock_err) => {
@@ -523,27 +512,26 @@ fn lock_directory(
                  session directory lock file: {}",
                 lock_err
             ));
-            if flock::Lock::error_unsupported(&lock_err) {
-                err.note(&format!(
-                    "the filesystem for the incremental path at {} \
-                     does not appear to support locking, consider changing the \
-                     incremental path to a filesystem that supports locking \
-                     or disable incremental compilation",
-                    session_dir.display()
-                ));
-                if std::env::var_os("CARGO").is_some() {
-                    err.help(
-                        "incremental compilation can be disabled by setting the \
-                         environment variable CARGO_INCREMENTAL=0 (see \
-                         https://doc.rust-lang.org/cargo/reference/profiles.html#incremental)",
-                    );
-                    err.help(
-                        "the entire build directory can be changed to a different \
-                        filesystem by setting the environment variable CARGO_TARGET_DIR \
-                        to a different path (see \
-                        https://doc.rust-lang.org/cargo/reference/config.html#buildtarget-dir)",
-                    );
-                }
+
+            err.note(&format!(
+                "the filesystem for the incremental path at {} \
+                 does not appear to support locking, consider changing the \
+                 incremental path to a filesystem that supports locking \
+                 or disable incremental compilation",
+                session_dir.display()
+            ));
+            if std::env::var_os("CARGO").is_some() {
+                err.help(
+                    "incremental compilation can be disabled by setting the \
+                     environment variable CARGO_INCREMENTAL=0 (see \
+                     https://doc.rust-lang.org/cargo/reference/profiles.html#incremental)",
+                );
+                err.help(
+                    "the entire build directory can be changed to a different \
+                    filesystem by setting the environment variable CARGO_TARGET_DIR \
+                    to a different path (see \
+                    https://doc.rust-lang.org/cargo/reference/config.html#buildtarget-dir)",
+                );
             }
             Err(err.emit())
         }
@@ -800,22 +788,19 @@ pub fn garbage_collect_session_directories(sess: &Session) -> io::Result<()> {
         };
 
         if is_finalized(directory_name) {
-            let lock_file_path = crate_directory.join(lock_file_name);
-            match flock::Lock::new(
-                &lock_file_path,
-                false, // don't wait
-                false, // don't create the lock-file
-                true,
-            ) {
+            let lock = match File::open(crate_directory.join(lock_file_name)) {
+                Ok(lock_file) => RwLock::new(lock_file),
+                Err(e) => {
+                    debug!("garbage_collect_session_directories() - unable to create lock: {}", e);
+                    continue;
+                }
+            };
+            match lock.write() {
                 // get an exclusive lock
-                Ok(lock) => {
+                Ok(guard) => {
+                    debug!("garbage_collect_session_directories() - successfully acquired lock");
                     debug!(
-                        "garbage_collect_session_directories() - \
-                            successfully acquired lock"
-                    );
-                    debug!(
-                        "garbage_collect_session_directories() - adding \
-                            deletion candidate: {}",
+                        "garbage_collect_session_directories() - adding deletion candidate: {}",
                         directory_name
                     );
 
@@ -827,10 +812,7 @@ pub fn garbage_collect_session_directories(sess: &Session) -> io::Result<()> {
                     ));
                 }
                 Err(_) => {
-                    debug!(
-                        "garbage_collect_session_directories() - \
-                            not collecting, still in use"
-                    );
+                    debug!("garbage_collect_session_directories() - not collecting, still in use");
                 }
             }
         } else if is_old_enough_to_be_collected(timestamp) {
@@ -845,38 +827,29 @@ pub fn garbage_collect_session_directories(sess: &Session) -> io::Result<()> {
             // Try to acquire the directory lock. If we can't, it
             // means that the owning process is still alive and we
             // leave this directory alone.
-            let lock_file_path = crate_directory.join(lock_file_name);
-            match flock::Lock::new(
-                &lock_file_path,
-                false, // don't wait
-                false, // don't create the lock-file
-                true,
-            ) {
-                // get an exclusive lock
-                Ok(lock) => {
-                    debug!(
-                        "garbage_collect_session_directories() - \
-                            successfully acquired lock"
-                    );
+            let lock = match File::open(crate_directory.join(lock_file_name)) {
+                Ok(lock_file) => RwLock::new(lock_file),
+                Err(e) => {
+                    debug!("garbage_collect_session_directories() - unable to create lock: {}", e);
+                    continue;
+                }
+            };
+            match lock.write() {
+                Ok(guard) => {
+                    debug!("garbage_collect_session_directories() - successfully acquired lock");
 
                     delete_old(sess, &crate_directory.join(directory_name));
 
                     // Let's make it explicit that the file lock is released at this point,
                     // or rather, that we held on to it until here
-                    mem::drop(lock);
+                    mem::drop(guard);
                 }
                 Err(_) => {
-                    debug!(
-                        "garbage_collect_session_directories() - \
-                            not collecting, still in use"
-                    );
+                    debug!("garbage_collect_session_directories() - not collecting, still in use");
                 }
             }
         } else {
-            debug!(
-                "garbage_collect_session_directories() - not finalized, not \
-                    old enough"
-            );
+            debug!("garbage_collect_session_directories() - not finalized, not old enough");
         }
     }
 

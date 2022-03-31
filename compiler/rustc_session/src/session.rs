@@ -8,7 +8,6 @@ use crate::{filesearch, lint};
 
 pub use rustc_ast::attr::MarkedAttrs;
 pub use rustc_ast::Attribute;
-use rustc_data_structures::flock;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_data_structures::jobserver::{self, Client};
 use rustc_data_structures::profiling::{duration_to_secs_str, SelfProfiler, SelfProfilerRef};
@@ -31,9 +30,12 @@ use rustc_target::spec::{
     SanitizerSet, SplitDebuginfo, StackProtector, Target, TargetTriple, TlsModel,
 };
 
+use fd_lock::RwLock;
+
 use std::cell::{self, RefCell};
 use std::env;
 use std::fmt;
+use std::fs::File;
 use std::io::Write;
 use std::ops::{Div, Mul};
 use std::path::{Path, PathBuf};
@@ -743,7 +745,7 @@ impl Session {
     pub fn init_incr_comp_session(
         &self,
         session_dir: PathBuf,
-        lock_file: flock::Lock,
+        lock_file: RwLock<File>,
         load_dep_graph: bool,
     ) {
         let mut incr_comp_session = self.incr_comp_session.borrow_mut();
@@ -1374,7 +1376,7 @@ pub enum IncrCompSession {
     NotInitialized,
     /// This is the state during which the session directory is private and can
     /// be modified.
-    Active { session_directory: PathBuf, lock_file: flock::Lock, load_dep_graph: bool },
+    Active { session_directory: PathBuf, lock_file: RwLock<File>, load_dep_graph: bool },
     /// This is the state after the session directory has been finalized. In this
     /// state, the contents of the directory must not be modified any more.
     Finalized { session_directory: PathBuf },

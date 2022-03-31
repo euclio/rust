@@ -7,6 +7,7 @@ edition = "2021"
 doctest = false
 
 [dependencies]
+fd-lock = "3.0.5"
 rustc_graphviz = { path = "../rustc_graphviz" }
 tracing = "0.1"
 rand = "0.8.4"
